@@ -1,0 +1,144 @@
+```{r}
+  # --- Load libraries ---
+  if(!requireNamespace("clusterProfiler", quietly = TRUE)) install.packages("clusterProfiler")
+  if(!requireNamespace("GOSemSim", quietly = TRUE)) install.packages("GOSemSim")
+  if(!requireNamespace("org.Hs.eg.db", quietly = TRUE)) BiocManager::install("org.Hs.eg.db")
+  if(!requireNamespace("ggtree", quietly = TRUE)) install.packages("ggtree")
+  if(!requireNamespace("ape", quietly = TRUE)) install.packages("ape")
+  if(!requireNamespace("pheatmap", quietly = TRUE)) install.packages("pheatmap")
+  if(!requireNamespace("reshape2", quietly = TRUE)) install.packages("reshape2")
+  if(!requireNamespace("ggplot2", quietly = TRUE)) install.packages("ggplot2")
+  
+  library(clusterProfiler)
+  library(GOSemSim)
+  library(org.Hs.eg.db)
+  library(ggtree)
+  library(ape)
+  library(pheatmap)
+  library(reshape2)
+  library(ggplot2)
+  library(AnnotationDbi)
+  library(tidyr)
+    library(GOSemSim)
+    library(clusterProfiler)
+    library(org.Hs.eg.db)
+    library(pheatmap)
+    library(DOSE)       # for simplot
+    library(ggtree)
+    library(ape)
+    library(ggplot2)
+
+```
+
+
+```{r}
+run_sample_semantic_analysis <- function(sample_list) {
+  
+  # --- Step 1: Select sample ---
+  cat("Available samples:\n")
+  sample_names <- names(sample_list)
+  for (i in seq_along(sample_names)) cat(i, ":", sample_names[i], "\n")
+  
+  sample_index <- as.integer(readline(prompt = "Enter the number of the sample you want to analyze: "))
+  if(is.na(sample_index) || sample_index < 1 || sample_index > length(sample_names)) stop("Invalid selection.")
+  
+  selected_sample <- sample_list[[sample_index]]
+  sample_col <- which(colnames(selected_sample) != "GeneSymbol")
+  expr_vector <- selected_sample[[sample_col]]
+  gene_symbols <- as.character(selected_sample$GeneSymbol)
+  
+  # --- Step 2: Top N genes ---
+  top_n <- as.integer(readline(prompt = "Enter the number of top expressed genes to select: "))
+  if(is.na(top_n) || top_n < 1) stop("Invalid number.")
+  
+  top_genes <- gene_symbols[order(expr_vector, decreasing = TRUE)][1:top_n]
+  
+  # --- Step 3: Filter valid SYMBOLs ---
+  valid_symbols <- keys(org.Hs.eg.db, keytype = "SYMBOL")
+  top_genes_valid <- intersect(top_genes, valid_symbols)
+  if(length(top_genes_valid) == 0) stop("None of the selected genes are valid SYMBOLs in org.Hs.eg.db.")
+  
+  # --- Step 4: Robust Entrez ID mapping ---
+  # mapIds
+  entrez_mapids <- mapIds(org.Hs.eg.db, keys = top_genes_valid,
+                          column = "ENTREZID", keytype = "SYMBOL", multiVals = "first")
+  
+  # bitr for any missing
+  missing_genes <- names(entrez_mapids)[is.na(entrez_mapids)]
+  if(length(missing_genes) > 0){
+    bitr_df <- bitr(missing_genes, fromType = "SYMBOL", toType = "ENTREZID", OrgDb = org.Hs.eg.db)
+    for(i in seq_len(nrow(bitr_df))){
+      entrez_mapids[bitr_df$SYMBOL[i]] <- bitr_df$ENTREZID[i]
+    }
+  }
+  
+  # Remove NAs and duplicates
+  genes_entrez <- entrez_mapids[!is.na(entrez_mapids)]
+  genes_entrez <- genes_entrez[!duplicated(names(genes_entrez))]
+  
+  # Report
+  mapped_genes <- names(genes_entrez)
+  omitted_genes <- setdiff(top_genes, mapped_genes)
+  cat(length(omitted_genes), "gene(s) were omitted due to missing Entrez ID mapping:\n")
+  if(length(omitted_genes) > 0) print(omitted_genes)
+  cat("Number of usable genes for semantic similarity:", length(genes_entrez), "\n")
+  
+  if(length(genes_entrez) < 2) stop("Too few genes mapped for semantic similarity. Increase top N.")
+  
+  # --- Step 5: GO semantic data ---
+  cat("Preparing GO semantic data...\n")
+  hsGO <- godata("org.Hs.eg.db", ont = "BP") # THIS IS WHERE YOU CHANGE ONTOLOGY
+  
+# --- Step 6: Compute semantic similarity robustly ---
+sim <- mgeneSim(genes_entrez, semData = hsGO, measure = "Wang", drop = "IEA", combine = "BMA") 
+
+#___
+# Step 1: Create a lookup table from ENTREZ ID to SYMBOL
+entrez_to_symbol <- setNames(names(genes_entrez), genes_entrez)
+# names(entrez_to_symbol) = ENTREZ IDs
+# values(entrez_to_symbol) = SYMBOLs
+
+# Step 2: Find which ENTREZ IDs in sim have a corresponding SYMBOL
+sim_ids <- rownames(sim)
+valid_ids <- sim_ids[sim_ids %in% names(entrez_to_symbol)]
+dropped_ids <- sim_ids[!sim_ids %in% names(entrez_to_symbol)]
+
+if(length(dropped_ids) > 0) {
+  cat(length(dropped_ids), "gene(s) in sim have no SYMBOL mapping:\n")
+  print(dropped_ids)
+}
+
+# Step 3: Subset sim to only valid IDs
+sim <- sim[valid_ids, valid_ids, drop = FALSE]
+
+# Step 4: Rename rows and columns to SYMBOLs
+rownames(sim) <- entrez_to_symbol[valid_ids]
+colnames(sim) <- entrez_to_symbol[valid_ids]
+
+# Now sim has SYMBOL row/col names, all valid
+print(sim)
+
+#___
+
+
+  # --- Step 7: Heatmap ---
+  cat("Plotting semantic similarity heatmap...\n")
+  pheatmap(sim, 
+           clustering_method = "ward.D", 
+           color = colorRampPalette(c("white", "red"))(50),
+           display_numbers = TRUE,
+           number_format = "%.2f",
+           main = paste("Semantic similarity heatmap:", sample_names[sample_index]))
+  
+  # --- Step 8: Dendrogram ---
+  cat("Plotting dendrogram...\n")
+  hc <- hclust(as.dist(1 - sim), method = "ward.D")
+  p <- ggtree(hc) + geom_tiplab() + xlim(NA, 0.5)
+  print(p)
+  
+  # --- Step 9: Return similarity matrix ---
+  return(sim)
+}
+
+
+```

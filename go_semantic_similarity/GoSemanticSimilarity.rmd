@@ -1,0 +1,9 @@
+# GOSemSim Stuff
+
+```{r}
+GSS_data <- gpr_list
+sim_matrix <- run_sample_semantic_analysis(GSS_data)
+```
+```{r}
+DOSE::simplot(sim_matrix)
+```
