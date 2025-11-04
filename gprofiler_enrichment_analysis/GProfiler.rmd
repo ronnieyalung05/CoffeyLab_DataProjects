@@ -1,0 +1,48 @@
+# Data engineering/altering/filtering
+
+```{r}
+# This code block gives you two pieces of data, gpr_data (all of the numeric normalized sample data with their gene symbol), and gpr_list (a list of the same thing, except 0 values from each column are removed and they're in descending order.
+
+# assume you already have: sample_data_normalized from the `initial_data_transformation` folder
+gpr_data <- sample_data_normalized %>%
+  dplyr::select(where(is.numeric), GeneSymbol)
+
+# get the names of numeric columns
+numeric_cols_gpr <- names(gpr_data)[sapply(gpr_data, is.numeric)]
+
+# create a list of dataframes removing all 0 values in each column and putting in desc order
+gpr_list <- lapply(numeric_cols_gpr, function(colname) {
+  gpr_data %>%
+    dplyr::select(all_of(colname), GeneSymbol) %>%
+    filter(.data[[colname]] != 0) %>%
+    arrange(dplyr::desc(.data[[colname]]))
+})
+
+# name each element in the list by its column
+names(gpr_list) <- numeric_cols_gpr
+```
+
+
+# RUN gost menu function for GOST results
+```{r}
+# get gost results using menu function that calls from a list of functions
+gost_results <- run_gost_menu(gpr_list)
+```
+
+
+
+
+# Data analysis
+
+# GOST PLOT
+```{r}
+view_gost_plots_menu(gost_results)
+```
+
+# HEATMAP
+```{r}
+# Filter Top N per group options:
+# y = shows the top n genes per sample.
+# n = shows the top n genes globally. so if the top 8 are only in HCF_S, it'll show just that. if part of that top 8 is in more than one sample, it'll show just those samples. (not useful in our case? not sure, but it's similar to what I had originally so I decided to keep it as a functionality)
+plot_heatmap_gost_menu(gost_results)
+```

@@ -1,0 +1,115 @@
+```{r}
+# -----------------------------------------
+# Heatmap functions
+# -----------------------------------------
+
+# 1️⃣ Single sample, multiple sources
+plot_heatmap_single_sample <- function(gost_results) {
+  if (is.null(gost_results$result) || nrow(gost_results$result) == 0) {
+    stop("No valid g:Profiler results found.")
+  }
+  
+  g_table <- gost_results$result %>%
+    mutate(neg_log_p = -log10(p_value))
+  
+  ggplot(g_table, aes(x = source, y = reorder(term_name, neg_log_p), fill = neg_log_p)) +
+    geom_tile() +
+    scale_fill_gradient(low = "white", high = "red") +
+    labs(
+      title = "Enriched Terms - Single Sample",
+      x = "Source",
+      y = "Term Name",
+      fill = "-log10(p-value)"
+    ) +
+    theme_minimal() +
+    theme(axis.text.y = element_text(size = 8),
+          axis.text.x = element_text(angle = 70, hjust = 1),
+          plot.title = element_text(hjust = 0.5))
+}
+
+#' Plot multi-sample g:Profiler results heatmap (for one chosen source)
+#'
+#' This function takes the output from run_gost_multi_sample_one_source()
+#' — a list of g:Profiler results (one per sample, each with $result) —
+#' and produces a heatmap comparing enriched terms across samples.
+#' The plot title will automatically include the source name (e.g. "GO:BP").
+#'
+plot_heatmap_multi_sample_one_source <- function(gost_results_list) {
+  # Extract the first non-null source name from results
+  first_valid <- gost_results_list[[which(!sapply(gost_results_list, is.null))[1]]]
+  source_name <- first_valid$result$source[1]
+  
+  # Combine results
+  combined_df <- do.call(rbind, lapply(names(gost_results_list), function(sample_name) {
+    result <- gost_results_list[[sample_name]]$result
+    if (!is.null(result)) {
+      result$sample <- sample_name
+      return(result)
+    }
+    NULL
+  }))
+  
+  # Transform p-values
+  combined_df <- combined_df %>%
+    mutate(neg_log_p = -log10(p_value))
+  
+  # Plot heatmap
+  ggplot(combined_df, aes(x = sample, y = reorder(term_name, neg_log_p), fill = neg_log_p)) +
+    geom_tile() +
+    scale_fill_gradient(low = "white", high = "red") +
+    labs(
+      title = paste0("Top Enriched Terms — ONE source (", source_name, ")"),
+      x = "Sample",
+      y = "Term Name",
+      fill = "-log10(p)"
+    ) +
+    theme_minimal() +
+    theme(
+      axis.text.x = element_text(angle = 70, hjust = 1, vjust = 1, size = 9),
+      axis.text.y = element_text(size = 7),
+      plot.title = element_text(hjust = 0.5, face = "bold")
+    )
+}
+
+
+
+# -----------------------------------------
+# Menu function for selecting heatmap
+# -----------------------------------------
+plot_heatmap_gost_menu <- function(gost_results) {
+  options <- c(
+    "Single sample, multiple sources",
+    "All samples, ONE source, results separate"
+  )
+  
+  cat("\nSelect a heatmap to view by entering the number:\n")
+  for (i in seq_along(options)) cat(sprintf("[%d] %s\n", i, options[i]))
+  
+  repeat {
+    choice <- readline(prompt = "\nEnter option number: ")
+    if (!grepl("^[0-9]+$", choice)) {
+      cat("Invalid input. Please enter a number.\n"); next
+    }
+    choice <- as.integer(choice)
+    if (choice < 1 || choice > length(options)) {
+      cat("Invalid option. Please select a number between 1 and", length(options), "\n"); next
+    }
+    break
+  }
+  
+  # Map choice to plotting function
+  plot_func <- switch(choice,
+                      plot_heatmap_single_sample,
+                      plot_heatmap_multi_sample_one_source)
+  
+  # Run function and return ggplot
+  p <- tryCatch({
+    plot_func(gost_results)
+  }, error = function(e) {
+    cat("❌ Error generating heatmap:\n", e$message, "\n")
+    return(NULL)
+  })
+  
+  return(p)
+}
+```
