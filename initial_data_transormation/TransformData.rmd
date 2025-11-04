@@ -1,0 +1,90 @@
+# Package install. Only need to run once. May take a while
+```{r}
+install.packages("readxl")
+install.packages("dplyr")
+install.packages("tidyr")
+install.packages("ggplot2")
+install.packages("pheatmap")
+install.packages("gprofiler2")
+install.packages("httr")
+install.packages("jsonlite")
+install.packages("ggVennDiagram")
+install.packages("Co")
+```
+
+# Document set up and library initialization. Run each different time opening the file.
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(readxl)
+library(dplyr)
+library(stringr)
+library(httr)
+library(jsonlite)
+library(xml2)
+library(purrr)
+library(tibble)
+library(tidyr)
+library(furrr)
+library(future)
+library(progressr)
+library(ggplot2)
+library(ggVennDiagram)
+library(plotly)
+library(ComplexUpset)
+library(stats)
+```
+
+# Read .xlsx file e.g. /Users/ronnie.yalung/Documents/coffey-lab-work/samplestest.xlsx
+```{r}
+print("Note: File format HAS to be in .xlsx, as R can't read the raw .xls Scaffold data. To do this, open the .xls file in 
+      Microsoft Excel, then Save As an Excel Workbook (.xlsx) in the File Format options.")
+
+xlsx_path <- as.character(readline(prompt = "Enter the path to your .xlsx file: "))
+sample_data_raw <- read_excel(path=xlsx_path, skip=3) # skip=3 to omit the description rows
+
+# Remove rows where the # column is a NA
+sample_data_raw <- sample_data_raw[!is.na(sample_data_raw$`#`), ]
+
+# ------
+# Prep and clean data: remove unneccessary columns, normalize the data. (run once)
+# ------
+  
+# Find the column number of 'Taxonomy' (Assuming all of the numeric data is after 'Taxonomy' column)
+taxonomy_col <- which(colnames(sample_data_raw) == "Taxonomy")
+
+# All columns after Taxonomy are numeric samples
+sample_cols <- (taxonomy_col + 1):ncol(sample_data_raw)
+
+# Create a new data frame with normalized values
+sample_data_normalized <- sample_data_raw %>%
+  mutate(across(all_of(sample_cols), ~ if_else(. == 0, 0, log2(.)))) # if value = 0, don't "log2 it", as that would result in a disruptive value (-Inf)
+
+sample_data_normalized <- sample_data_normalized %>% dplyr::select(-c(`Molecular Weight`, `Taxonomy`, `Visible?`, `Starred?`,
+                                                                 `Alternate ID`, `Protein Grouping Ambiguity`))
+
+
+# Clean accession/entry names
+sample_data_normalized <- sample_data_normalized %>%
+  mutate(
+    # Remove any " (+1)" or similar scaffold suffix
+    AccessionNumberClean = str_remove(`Accession Number`, "\\s*\\(\\+.*\\)"),
+
+    # Extract UniProtID if present (middle piece)
+    UniProtID = str_extract(AccessionNumberClean, "(?<=\\|)[A-Z0-9]+(?=\\|)"),
+
+    # Extract entry name (right-hand piece)
+    EntryName = str_extract(AccessionNumberClean, "[A-Z0-9_]+(?=\\|?$)"),
+
+    # Create Gene symbol (strip species suffix)
+    GeneSymbol = str_remove(EntryName, "_[A-Z]+$")
+  ) %>%
+  # Keep only human proteins
+  filter(str_detect(EntryName, "_HUMAN$")) %>%
+  # Filter out rows with no UniProtID
+  filter(!is.na(UniProtID)) %>%
+  # Remove unwanted columns
+  dplyr::select(-`#`, -`Accession Number`)
+
+# We no longer need sample_data_raw. If you want to clean your data environment, run the below code:
+# rm(sample_data_raw)
+```

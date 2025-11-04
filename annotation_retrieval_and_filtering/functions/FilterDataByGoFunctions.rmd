@@ -3,7 +3,7 @@
 # -------------------------------
 # GO ID filter
 # -------------------------------
-filter_proteins_by_go <- function(protein_df) {
+filter_samples_by_go <- function(protein_df) {
   user_input <- readline(prompt = "Enter GO IDs to filter for (comma-separated, e.g., GO:0003677,GO:0008150): ")
   go_terms <- str_trim(unlist(str_split(user_input, ",")))
   if (length(go_terms) == 0) stop("No valid GO IDs entered.")
@@ -27,7 +27,7 @@ filter_proteins_by_go <- function(protein_df) {
 # -------------------------------
 # GO name filter (contains/fuzzy)
 # -------------------------------
-filter_proteins_by_go_names <- function(protein_df) {
+filter_samples_by_go_names <- function(protein_df) {
   user_input <- readline(prompt = "Enter GO term keywords to filter for (comma-separated, e.g., RNA binding, apoptosis): ")
   go_keywords <- str_trim(unlist(str_split(user_input, ",")))
   if (length(go_keywords) == 0) stop("No valid GO keywords entered.")
@@ -51,7 +51,7 @@ filter_proteins_by_go_names <- function(protein_df) {
 # -------------------------------
 # Strict GO name filter (exact match)
 # -------------------------------
-filter_proteins_by_go_names_strict <- function(protein_df) {
+filter_samples_by_go_names_strict <- function(protein_df) {
   user_input <- readline(prompt = "Enter exact GO term names to filter for (comma-separated): ")
   go_exact <- str_trim(unlist(str_split(user_input, ",")))
   if (length(go_exact) == 0) stop("No valid GO keywords entered.")
@@ -75,7 +75,7 @@ filter_proteins_by_go_names_strict <- function(protein_df) {
 # -------------------------------
 # Combined GO ID + GO name filter (non-strict / contains)
 # -------------------------------
-filter_proteins_by_go_combined <- function(protein_df) {
+filter_samples_by_go_combined <- function(protein_df) {
   user_go_ids <- readline(prompt = "Enter GO IDs to filter for (comma-separated, or leave blank to skip): ")
   go_ids <- if (nzchar(user_go_ids)) str_trim(unlist(str_split(user_go_ids, ","))) else character(0)
   
@@ -109,7 +109,7 @@ filter_proteins_by_go_combined <- function(protein_df) {
 # -------------------------------
 # Combined GO ID + GO name filter (strict / exact)
 # -------------------------------
-filter_proteins_by_go_combined_strict <- function(protein_df) {
+filter_samples_by_go_combined_strict <- function(protein_df) {
   user_go_ids <- readline(prompt = "Enter GO IDs to filter for (comma-separated, or leave blank to skip): ")
   go_ids <- if (nzchar(user_go_ids)) str_trim(unlist(str_split(user_go_ids, ","))) else character(0)
   
@@ -150,15 +150,15 @@ run_go_filter <- function(protein_df) {
   
   # List of functions with descriptions
   filters <- list(
-    list(name = "filter_proteins_by_go", 
+    list(name = "filter_samples_by_go", 
          desc = "Filter by GO IDs"),
-    list(name = "filter_proteins_by_go_names", 
+    list(name = "filter_samples_by_go_names", 
          desc = "Filter by GO names (contains/fuzzy)"),
-    list(name = "filter_proteins_by_go_names_strict", 
+    list(name = "filter_samples_by_go_names_strict", 
          desc = "Filter by GO names (exact match)"),
-    list(name = "filter_proteins_by_go_combined", 
+    list(name = "filter_samples_by_go_combined", 
          desc = "Filter by GO IDs and GO names (contains/fuzzy)"),
-    list(name = "filter_proteins_by_go_combined_strict", 
+    list(name = "filter_samples_by_go_combined_strict", 
          desc = "Filter by GO IDs and GO names (exact match)")
   )
   
@@ -190,74 +190,4 @@ run_go_filter <- function(protein_df) {
 
 # -------------------------------
 # Example usage:
-# filtered_proteins <- run_go_filter(protein_data_with_go)
-
-
-
-# ---------------------------------------------------------------------
-# Function: filter_numeric_protein_data
-# Purpose: Filter a numeric protein expression dataset by:
-#          - GeneSymbols
-#          - Protein sample columns
-#          - Top N expressions (per gene or per sample)
-#          - Expression value thresholds (above, below, or equal to)
-#          - Combinations of all filters
-# ---------------------------------------------------------------------
-
-filter_numeric_protein_data <- function(
-  data, 
-  gene_symbols = NULL,          # Vector of GeneSymbols to keep (default NULL = keep all)
-  protein_samples = NULL,       # Vector of column names to keep (default NULL = keep all)
-  top_n_genes = NULL,           # Number of top-expressing genes to keep (per column)
-  expression_threshold = NULL,  # Vector: c("operator", value), e.g., c(">", 2)
-  combine_logic = "AND"         # "AND" or "OR" for combining filters
-) {
-  # Step 0: Validate input
-  if (!is.data.frame(data)) stop("`data` must be a data frame.")
-  if (!all(sapply(data, is.numeric))) stop("All columns in `data` must be numeric (row names = genes).")
-  
-  filtered_data <- data
-  
-  # Step 1: Filter by GeneSymbols
-  if (!is.null(gene_symbols)) {
-    keep_gene <- rownames(filtered_data) %in% gene_symbols
-    if (combine_logic == "AND") filtered_data <- filtered_data[keep_gene, , drop=FALSE]
-  }
-  
-  # Step 2: Filter by protein samples (columns)
-  if (!is.null(protein_samples)) {
-    missing_cols <- setdiff(protein_samples, colnames(filtered_data))
-    if (length(missing_cols) > 0) warning("Some protein samples not found: ", paste(missing_cols, collapse=", "))
-    keep_cols <- intersect(protein_samples, colnames(filtered_data))
-    filtered_data <- filtered_data[, keep_cols, drop=FALSE]
-  }
-  
-  # Step 3: Filter by expression threshold
-  if (!is.null(expression_threshold)) {
-    operator <- expression_threshold[1]
-    value <- as.numeric(expression_threshold[2])
-    if (!(operator %in% c(">", ">=", "<", "<=", "=="))) stop("Operator must be one of >, >=, <, <=, ==")
-    
-    expr_filter <- switch(operator,
-                          ">"  = filtered_data > value,
-                          ">=" = filtered_data >= value,
-                          "<"  = filtered_data < value,
-                          "<=" = filtered_data <= value,
-                          "==" = filtered_data == value)
-    
-    # Keep rows that satisfy the threshold (any column)
-    keep_rows <- rowSums(expr_filter) > 0
-    filtered_data <- filtered_data[keep_rows, , drop=FALSE]
-  }
-  
-  # Step 4: Filter top N genes by mean expression (optional)
-  if (!is.null(top_n_genes)) {
-    gene_means <- rowMeans(filtered_data, na.rm = TRUE)
-    top_genes <- names(sort(gene_means, decreasing = TRUE))[1:min(top_n_genes, nrow(filtered_data))]
-    filtered_data <- filtered_data[top_genes, , drop=FALSE]
-  }
-  
-  # Step 5: Return filtered dataset
-  return(filtered_data)
-}
-```
+# filtered_samples <- run_go_filter(sample_data_with_go)

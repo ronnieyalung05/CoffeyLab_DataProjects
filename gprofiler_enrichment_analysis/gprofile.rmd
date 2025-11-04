@@ -44,7 +44,7 @@ run_gost_from_input <- function(g_protein_list) {
   print(names(g_protein_list))
   
   # Step 2: ask for user input
-  protein_input <- readline(prompt = "\nEnter ONE protein name from the list above: ")
+  protein_input <- readline(prompt = "\nEnter ONE sample name from the list above: ")
   
   # Step 3: validate protein name
   if (!(protein_input %in% names(g_protein_list))) {
@@ -136,7 +136,7 @@ g_res <- g_res %>%
 # Optionally, take top N most significant terms
 top_terms <- g_res %>%
   arrange(p_value) %>%
-  slice_head(n = 30)
+  slice_head(n = 30) #TODO: make it so where its not just top 30 overall, but top 30 PER set (e.g. top 30 for go;bp, top 30 for kegg, etc)
 ```
 
 ```{r}
@@ -156,67 +156,7 @@ ggplot(top_terms, aes(x = source, y = reorder(term_name, neg_log_p), fill = neg_
     plot.title = element_text(hjust = 0.5)
   )
 ```
-
-
-
-# PCA (not entirely sure what im doing/looking for here)
-```{r}
-# for pca
-run_pca_on_gost <- function(gost_results) {
-  # Check that the result object exists
-  if (is.null(gost_results$result)) {
-    stop("No valid results found in gost_results.")
-  }
-  
-  # Extract data
-  df <- gost_results$result
-  
-  # Automatically detect which source was used (only one should exist)
-  source_used <- unique(df$source)
-  
-  if (length(source_used) != 1) {
-    warning(paste("Multiple sources found:", paste(source_used, collapse = ", "),
-                  "\nDefaulting to first:", source_used[1]))
-    source_used <- source_used[1]
-  }
-  
-  cat(paste0("Running PCA on source: ", source_used, "\n"))
-  
-  # Filter only that source
-  df_filtered <- df %>%
-    filter(source == source_used) %>%
-    dplyr::select(term_name, p_value)
-  
-  # Transform p-values (so smaller p => larger number)
-  df_filtered <- df_filtered %>%
-    mutate(log_pval = -log10(p_value))
-  
-  # PCA requires numeric columns — here we only have one numeric (log_pval),
-  # so we can’t really "rotate" dimensions. Instead, we’ll simulate
-  # multiple features by adding term index or dummy noise (optional).
-  # This helps visualize term variance.
-  df_filtered <- df_filtered %>%
-    mutate(term_index = seq_along(term_name))
-  
-  # Run PCA
-  pca_res <- prcomp(df_filtered[, c("log_pval", "term_index")], scale. = TRUE)
-  
-  # Prepare dataframe for plotting
-  pca_df <- as.data.frame(pca_res$x)
-  pca_df$term_name <- df_filtered$term_name
-  
-  # Plot PCA results
-  plot <- ggplot(pca_df, aes(x = PC1, y = PC2, label = term_name)) +
-    geom_point(color = "steelblue", size = 3) +
-    # geom_text(vjust = 1.5, size = 3) +
-    labs(title = paste("PCA of", source_used, "terms from g:Profiler. Note: smaller p => larger number"),
-         x = "Principal Component 1", y = "Principal Component 2") +
-    theme_minimal()
-  ggplotly(plot, tooltip = "text")
-}
-```
-
-```{r}
-run_pca_on_gost(gost_results)
-```
 ## GOSemSim
+# TODO: flip it around. we want multiple SAMPLES and one ontology. note: the HCF_S etc are SAMPLES, not proteins. same for heatmap and gost results. (comparing samples... we want to see the GO:BP for HCF_S sample, then sample 2, and compare those)
+
+# then, do gene concept network plots. then gosemsim.

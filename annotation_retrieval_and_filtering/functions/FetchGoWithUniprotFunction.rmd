@@ -33,7 +33,7 @@ fetch_go_for_protein <- function(uniprot_id) {
       stop(sprintf("QuickGO request failed: %s %s", status_code(resp), content(resp, "text", encoding = "UTF-8")))
     }
 
-    parsed <- content(resp, as = "parsed", type = "application/json")
+    parsed <- httr::content(resp, as = "parsed", type = "application/json")
     results <- parsed$results
 
     if (is.null(results) || length(results) == 0) break
@@ -87,6 +87,22 @@ fetch_go_for_protein <- function(uniprot_id) {
     goIds = list(goIds),
     goNames = list(goNames),
     ontology = list(ontology),
+  )
+}
+
+# Function to safely wrap fetch_go_for_protein
+safe_fetch_go <- function(uid) {
+  tryCatch(
+    fetch_go_for_protein(uid),
+    error = function(e) {
+      warning(sprintf("Failed for UniProtID %s: %s", uid, e$message))
+      tibble(
+        UniProtID = uid,
+        goIds = list(character(0)),
+        goNames = list(NA_character_),
+        ontology = list(NA_character_)
+      )
+    }
   )
 }
 ```

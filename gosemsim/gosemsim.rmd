@@ -1,0 +1,98 @@
+# GOSemSim Stuff
+
+```{r}
+# Install GOSemSim and necessary biocondunctor annotation manager
+if (!require("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+
+BiocManager::install("GOSemSim")
+BiocManager::install("org.Hs.eg.db")
+BiocManager::install("clusterProfiler")
+```
+
+```{r}
+#note, some packages will overwrite some function (e.g. dplyr select) so you have to exlicitly call it if you want to use it
+# to avoid confusion (e.g. dplyr::select)
+library(GOSemSim)
+library(org.Hs.eg.db)  # human genes
+library(pheatmap)
+library(clusterProfiler)
+library(furrr)      # for parallel map with progress
+library(progressr)  # for progress bar
+```
+
+```{r}
+# GO semantic data
+# Change ont="MF"/"CC" if needed
+hsGO <- godata('org.Hs.eg.db', keytype="SYMBOL", ont="BP", computeIC=TRUE)
+
+# Define gene list
+gene_list <- gpr_data_all$GeneSymbol
+
+# do the following if not keytype = symbol for hsGO------------------
+# Map SYMBOL → ENTREZID (or can do UNIPROTID in fromType)
+gene_mapping <- bitr(gene_list, fromType="SYMBOL", 
+                     toType="ENTREZID", OrgDb="org.Hs.eg.db")
+
+# Use mapped Entrez IDs for mgeneSim
+mapped_genes <- gene_mapping$ENTREZID
+#END------------------------------------------------------------------
+```
+
+```{r}
+plan(multisession, workers = parallel::detectCores() - 1)
+
+# -----------------------------
+# 5️⃣ Helper function for pairwise similarity
+# -----------------------------
+compute_row <- function(gene_i, all_genes, semData) {
+  sapply(all_genes, function(gene_j) {
+    tryCatch(
+      geneSim(gene_i, gene_j, semData=semData, measure="Wang", combine="BMA"),
+      error = function(e) NA_real_
+    )
+  })
+}
+
+# -----------------------------
+# 6️⃣ Compute similarity matrix in parallel with progress
+# -----------------------------
+sim_list <- future_map(mapped_genes, function(gene_i) {
+  compute_row(gene_i, mapped_genes, hsGO)
+}, .progress = TRUE)  # text-based progress bar
+
+# Convert list of rows to a matrix
+sim_matrix <- do.call(rbind, sim_list)
+rownames(sim_matrix) <- gene_names
+colnames(sim_matrix) <- gene_names
+```
+
+```{r}
+# (requires entrezID for this method) <- no it doesn't, it dpeends on hsGO
+sim_matrix <- mgeneSim(gene_list, semData=hsGO, measure="Wang", combine="BMA")
+
+print(sim_matrix)
+
+```
+
+```{r}
+# clustered heatmap
+pheatmap(sim_matrix,
+         cluster_rows = TRUE,
+         cluster_cols = TRUE,
+         display_numbers = TRUE,
+         main = "Gene Semantic Similarity (BP)",
+         color = colorRampPalette(c("white", "blue"))(100))
+```
+
+mgeneSim uses the 
+```{r}
+## convert gene ID to Symbol
+edox <- setReadable(edo, 'org.Hs.eg.db', 'ENTREZID')
+p1 <- cnetplot(edox, foldChange=gene_list)
+## categorySize can be scaled by 'pvalue' or 'geneNum'
+p2 <- cnetplot(edox, categorySize="pvalue", foldChange=gene_list)
+p3 <- cnetplot(edox, foldChange=geneList, circular = TRUE, colorEdge = TRUE) 
+cowplot::plot_grid(p1, p2, p3, ncol=3, labels=LETTERS[1:3], rel_widths=c(.8, .8, 1.2))
+```
+

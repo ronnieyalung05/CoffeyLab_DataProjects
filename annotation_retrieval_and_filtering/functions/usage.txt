@@ -65,44 +65,7 @@ GROUP 1: GO TERM FILTERING FUNCTIONS
      filtered_proteins <- run_go_filter(protein_data_with_go)
 
 ------------------------------------------------------------
-GROUP 2: NUMERIC DATA FILTERING
-------------------------------------------------------------
-
-1. filter_numeric_protein_data(data, gene_symbols=NULL, protein_samples=NULL,
-                               top_n_genes=NULL, expression_threshold=NULL, combine_logic="AND")
-   - Filters numeric protein expression datasets based on multiple criteria.
-   - Parameters:
-     data: Data frame with rownames = GeneSymbols and numeric columns = protein samples.
-     gene_symbols: Vector of GeneSymbols to keep (default NULL = all).
-     protein_samples: Vector of column names to keep (default NULL = all).
-     top_n_genes: Integer; keep top N genes by mean expression (default NULL = keep all).
-     expression_threshold: Vector c("operator", value), e.g., c(">", 2) to filter rows.
-       Valid operators: ">", ">=", "<", "<=", "==".
-     combine_logic: "AND" or "OR" when combining multiple filters (default = "AND").
-   - Usage Examples:
-     # Keep top 50 expressing genes
-     top50 <- filter_numeric_protein_data(df_numeric, top_n_genes=50)
-
-     # Keep genes with expression >2 in any sample
-     filtered <- filter_numeric_protein_data(df_numeric, expression_threshold=c(">",2))
-
-     # Keep only specific genes and samples
-     filtered <- filter_numeric_protein_data(df_numeric, gene_symbols=c("KRT1","TP53"), protein_samples=c("HNPCC_CL","HCF_EV"))
-
-     # Keep genes TP53, BRCA1, MYC
-     # Only columns Sample1, Sample2
-     # Expression ≥ 1 in any column
-     # Then top 5 genes by mean
-     filtered <- filter_numeric_protein_data(
-       data = protein_data,
-       gene_symbols = c("TP53", "BRCA1", "MYC"),
-       protein_samples = c("Sample1", "Sample2"),
-       expression_threshold = c(">=", 1),
-       top_n_genes = 5
-     )
-
-------------------------------------------------------------
-GROUP 3: DATA VISUALIZATION FUNCTIONS
+GROUP 2: DATA VISUALIZATION FUNCTIONS
 ------------------------------------------------------------
 
 1. plot_interactive_protein_heatmap(data, cluster_rows=TRUE, cluster_columns=TRUE,
@@ -132,7 +95,7 @@ GROUP 3: DATA VISUALIZATION FUNCTIONS
      plot_protein_venn(TESTdf)
 
 ------------------------------------------------------------
-GROUP 4: GO TERM FETCHING FUNCTION
+GROUP 3: GO TERM FETCHING FUNCTION
 ------------------------------------------------------------
 
 1. fetch_go_for_protein(uniprot_id)
@@ -166,9 +129,6 @@ df_numeric$GeneSymbol[is.na(df_numeric$GeneSymbol) | df_numeric$GeneSymbol == ""
 rownames(df_numeric) <- make.unique(df_numeric$GeneSymbol)
 df_numeric$GeneSymbol <- NULL
 df_numeric[is.na(df_numeric)] <- 0
-
-# 3. Filter numeric data
-TESTdf <- filter_numeric_protein_data(df_numeric, top_n_genes=50, expression_threshold=c(">",2))
 
 # 4. Visualize
 heatmap_plot <- plot_interactive_protein_heatmap(TESTdf, cluster_rows=FALSE)

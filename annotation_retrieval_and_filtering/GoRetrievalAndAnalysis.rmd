@@ -1,0 +1,75 @@
+# NOTE: must run initial_data_transformation folder files and the function folder files before executing these processes
+
+# Run the fetch_go_for_protein function for each protein in parallel. Protein data with GO:terms that is normalized is in "sample_data_with_go" df
+```{r}
+# Set up parallel plan
+plan(multisession, workers = parallel::detectCores() - 1)
+
+# UniProt IDs
+uids <- sample_data_normalized$UniProtID
+
+# Parallel fetch with progress bar
+results_list <- future_map(uids, safe_fetch_go, .progress = TRUE)
+
+# Combine results into a single data frame
+go_annotations_df <- bind_rows(results_list)
+
+# Merge back to original dataset safely
+sample_data_with_go <- bind_cols(
+  sample_data_normalized,
+  go_annotations_df %>% dplyr::select(-UniProtID)
+)
+
+# Run if you want to clean the data environment:
+# rm(results_list, go_annotations_df)
+```
+
+### RUN ALL PREVIOUS CODE CELLS UP UNTIL THIS POINT. READ BELOW CAREFULLY
+At this point, all functions should be loaded into your environment, and you should have a dataset named `sample_data_with_go` that has all of the proteins/samples with their go_terms.
+
+Running the next cell will allow you to filter proteins into two new datasets: `filtered_samples` and `df_numeric`. `filtered_samples` is the dataframe with all columns/data related to the proteins you've filtered for, and `df_numeric` is that same dataframe, except with only the numeric data kept and with the GeneSymbol column as rows.
+
+# Run function + Prepare data analysis df as `samples_go_filtered_numeric`.
+```{r}
+# Runs the the GO filter function, and then creates the numeric dataframe associated with the filtered data 
+# `protein_data_with_go` is the dataset with go_terms (and already normalized numeric data)
+go_filtered_samples <- run_go_filter(sample_data_with_go)
+
+
+### Make dataframe where row names are GeneSymbols and columns are proteins. Cell data is protein expressions.
+
+# Change `samples_go_filtered_numeric` to whatever you want to name the set (before the '<-')
+# Change `filtered_proteins` to whatever (filtered) protein dataset you want to select from (after the '<-' and before the '%>%')
+samples_go_filtered_numeric <- go_filtered_samples %>%
+  dplyr::select(where(is.numeric), GeneSymbol)
+
+# Convert tibble to a data frame (since tibbles don't support rownames)
+samples_go_filtered_numeric <- as.data.frame(samples_go_filtered_numeric)
+# Remove any unwanted NA values
+samples_go_filtered_numeric$GeneSymbol[is.na(samples_go_filtered_numeric$GeneSymbol) | samples_go_filtered_numeric$GeneSymbol == ""] <- "Unknown"
+samples_go_filtered_numeric[is.na(samples_go_filtered_numeric)] <- 0
+
+# Make them unique by appending numbers (e.g., KRT1, KRT1.1, KRT1.2)
+rownames(samples_go_filtered_numeric) <- make.unique(samples_go_filtered_numeric$GeneSymbol)
+samples_go_filtered_numeric$GeneSymbol <- NULL
+```
+
+### READ CAREFULLY contd.
+After running this cell, you can perform further protein filtering using the `filter_sample_protein_data` function *USE `samples_go_filtered_numeric` FOR THIS*. You can also perform various data analysis functions (located in `DataAnalysisFunctions.rmd`) on the `samples_go_filtered_numeric` dataframe. Usage documents will be in `usage.txt`. Some examples are provided below.
+
+
+```{r}
+# Assuming df_numeric is your dataframe with rownames = GeneSymbols
+heatmap_plot <- plot_interactive_sample_heatmap(samples_go_filtered_numeric,
+                                                 cluster_rows = FALSE,
+                                                 cluster_columns = FALSE,
+                                                 tooltip_precision = 3)
+
+# Show plot
+heatmap_plot
+```
+
+```{r}
+# Will prompt user
+plot_samples_venn(samples_go_filtered_numeric)
+```
