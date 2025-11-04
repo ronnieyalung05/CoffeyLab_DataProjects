@@ -1,0 +1,151 @@
+```{r}
+# -----------------------------
+# Required libraries
+# -----------------------------
+library(dplyr)
+library(clusterProfiler)
+library(org.Hs.eg.db)
+
+# -----------------------------
+# Map GeneSymbols -> Entrez IDs
+# -----------------------------
+map_genes <- function(gene_symbols) {
+  gene_symbols <- toupper(trimws(gene_symbols))
+  
+  gene_df <- bitr(
+    gene_symbols,
+    fromType = "SYMBOL",
+    toType = "ENTREZID",
+    OrgDb = org.Hs.eg.db
+  )
+  
+  mapped_genes <- gene_df$SYMBOL
+  unmapped_genes <- setdiff(gene_symbols, mapped_genes)
+  
+  cat("Number of mapped genes:", length(mapped_genes), "\n")
+  cat("Number of unmapped genes:", length(unmapped_genes), "\n")
+  
+  return(gene_df$ENTREZID)
+}
+
+# -----------------------------
+# Run GO enrichment
+# -----------------------------
+run_enrichment <- function(entrez_ids, ont = "BP", pval_cutoff = 0.05, qval_cutoff = 0.2) {
+  edo <- enrichGO(
+    gene = entrez_ids,
+    OrgDb = org.Hs.eg.db,
+    keyType = "ENTREZID",
+    ont = ont,
+    pAdjustMethod = "BH",
+    pvalueCutoff = pval_cutoff,
+    qvalueCutoff = qval_cutoff
+  )
+  setReadable(edo, OrgDb = 'org.Hs.eg.db', keyType = 'ENTREZID')
+}
+
+# -----------------------------
+# Filter top N by p-value
+# -----------------------------
+filter_top_n_pvalue <- function(edox, n = 20) {
+  edo_df <- as.data.frame(edox) %>%
+    arrange(p.adjust) %>%
+    head(n)
+  
+  if(nrow(edo_df) == 0) return(edox)
+  
+  edo_filtered <- enrichGO(
+    gene = unlist(strsplit(paste(edo_df$geneID, collapse="/"), "/")) %>% unique(),
+    OrgDb = org.Hs.eg.db,
+    keyType = "ENTREZID",
+    ont = "BP",
+    pvalueCutoff = max(edo_df$p.adjust),
+    qvalueCutoff = max(edo_df$qvalue)
+  )
+  edo_filtered <- setReadable(edo_filtered, OrgDb='org.Hs.eg.db', keyType='ENTREZID')
+  
+  cat("Top", n, "terms selected by p-value.\n")
+  cat("Remaining terms:", nrow(as.data.frame(edo_filtered)), "\n")
+  cat("Unique genes involved:", length(unique(unlist(strsplit(paste(edo_filtered@result$geneID, collapse="/"), "/")))), "\n")
+  
+  return(edo_filtered)
+}
+
+# -----------------------------
+# Filter terms with >= N genes
+# -----------------------------
+filter_by_geneNum <- function(edox, min_genes = 3) {
+  edo_df <- as.data.frame(edox) %>%
+    filter(geneNum >= min_genes)
+  
+  if(nrow(edo_df) == 0) return(edox)
+  
+  edo_filtered <- enrichGO(
+    gene = unlist(strsplit(paste(edo_df$geneID, collapse="/"), "/")) %>% unique(),
+    OrgDb = org.Hs.eg.db,
+    keyType = "ENTREZID",
+    ont = "BP",
+    pvalueCutoff = max(edo_df$p.adjust),
+    qvalueCutoff = max(edo_df$qvalue)
+  )
+  edo_filtered <- setReadable(edo_filtered, OrgDb='org.Hs.eg.db', keyType='ENTREZID')
+  
+  cat("Filtered terms with >=", min_genes, "genes per term.\n")
+  cat("Remaining terms:", nrow(as.data.frame(edo_filtered)), "\n")
+  cat("Unique genes involved:", length(unique(unlist(strsplit(paste(edo_filtered@result$geneID, collapse="/"), "/")))), "\n")
+  
+  return(edo_filtered)
+}
+
+# -----------------------------
+# Interactive enrichment with multiple filters + summary
+# -----------------------------
+interactive_enrichment <- function(gene_symbols) {
+  cat("=== Welcome to the GO enrichment workflow ===\n\n")
+  
+  # Step 1: Map genes
+  entrez_ids <- map_genes(gene_symbols)
+  
+  # Step 2: Choose ontology
+  cat("\nChoose ontology:\n1: BP (Biological Process)\n2: MF (Molecular Function)\n3: CC (Cellular Component)\n")
+  ont_choice <- readline(prompt="Enter 1, 2, or 3: ")
+  ont <- switch(ont_choice, "1"="BP", "2"="MF", "3"="CC", "BP")
+  cat("Selected ontology:", ont, "\n")
+  
+  # Step 3: Run enrichment
+  edox <- run_enrichment(entrez_ids, ont = ont)
+  
+  cat("\nInitial enrichment results:\n")
+  cat("Number of terms:", nrow(as.data.frame(edox)), "\n")
+  cat("Unique genes involved:", length(unique(unlist(strsplit(paste(edox@result$geneID, collapse="/"), "/")))), "\n")
+  
+  # Step 4: Apply multiple filters
+  cat("\nApply filters? You can choose multiple options.\n")
+  apply_top_n <- readline(prompt="Filter by top N terms by p-value? (y/n): ")
+  apply_min_genes <- readline(prompt="Filter by minimum number of genes per term? (y/n): ")
+  
+  # Top N filter
+  if(tolower(apply_top_n) == "y") {
+    n <- as.integer(readline(prompt="Enter N (number of top terms by p-value): "))
+    edox <- filter_top_n_pvalue(edox, n = n)
+  }
+  
+  # Min gene number filter
+  if(tolower(apply_min_genes) == "y") {
+    min_genes <- as.integer(readline(prompt="Enter minimum number of genes per term: "))
+    edox <- filter_by_geneNum(edox, min_genes = min_genes)
+  }
+  
+  cat("\nFinal enrichment summary:\n")
+  cat("Number of terms:", nrow(as.data.frame(edox)), "\n")
+  cat("Unique genes involved:", length(unique(unlist(strsplit(paste(edox@result$geneID, collapse="/"), "/")))), "\n")
+  
+  cat("\nEnrichment workflow complete! Object ready for plotting.\n")
+  return(edox)
+}
+
+# -----------------------------
+# Example usage:
+# -----------------------------
+# edox_final <- interactive_enrichment(sample_data_normalized$GeneSymbol)
+```

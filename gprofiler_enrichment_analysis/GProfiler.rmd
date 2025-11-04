@@ -26,7 +26,7 @@ names(gpr_list) <- numeric_cols_gpr
 # RUN gost menu function for GOST results
 ```{r}
 # get gost results using menu function that calls from a list of functions
-gost_results <- run_gost_menu(gpr_list)
+gost_results <- run_gost_menu_with_top_n(gpr_list)
 ```
 
 

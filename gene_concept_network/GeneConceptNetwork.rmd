@@ -1,10 +1,16 @@
 ```{r}
-# Step 0: Install/load packages
-if (!requireNamespace("BiocManager", quietly=TRUE))
-    install.packages("BiocManager")
+# -----------------------------
+# Step 0: Install/load necessary packages
+# -----------------------------
+if (!requireNamespace("BiocManager", quietly = TRUE)) install.packages("BiocManager")
 
-BiocManager::install(c("clusterProfiler", "org.Hs.eg.db", "enrichplot", "cowplot"))
+# Install Bioconductor packages if not already installed
+BiocManager::install(c("clusterProfiler", "org.Hs.eg.db", "enrichplot", "cowplot"), ask=FALSE)
 
+# Install CRAN packages if not already installed
+install.packages("dplyr")
+
+# Load libraries
 library(clusterProfiler)
 library(org.Hs.eg.db)
 library(enrichplot)
@@ -14,40 +20,75 @@ library(dplyr)
 
 ```{r}
 # -----------------------------
-# Step 1: Create project-specific dataframe
+# Step 1: Prepare gene list
 # -----------------------------
-# Extract only GeneSymbols column
-gcn_data <- sample_data_normalized %>% 
-  select(GeneSymbol) %>% 
-  distinct()  # remove duplicates
+# Assume protein_data_normalized is your dataframe with a column "GeneSymbols"
+gene_data <- sample_data_normalized %>%
+  select(GeneSymbol) %>%
+  distinct()
 
-# Optional: if you have fold changes or numeric data
-# gcn_data$log2FC <- protein_data_normalized$log2FC
-
-gene_symbols <- gcn_data$GeneSymbol
+# TODO: need to figure out how we want to choose what genes were looking at, because there's way too much data at the moment
+gene_symbols <- toupper(trimws(gene_data$GeneSymbol))  # clean symbols
 
 # -----------------------------
-# Step 2: Clean gene symbols
+# Step 2: Map GeneSymbols → Entrez IDs
 # -----------------------------
-gene_symbols <- toupper(trimws(gene_symbols))  # remove spaces, make uppercase
-```
-
-```{r}
-# -----------------------------
-# Step 3: Map GeneSymbols → Entrez IDs
-# -----------------------------
-gcf_df <- bitr(
+gcn_data <- bitr(
   gene_symbols,
   fromType = "SYMBOL",
   toType = "ENTREZID",
   OrgDb = org.Hs.eg.db
 )
 
-# Check how many failed to map
-mapped_genes   <- gcf_df$SYMBOL
+mapped_genes   <- gcn_data$SYMBOL
 unmapped_genes <- setdiff(gene_symbols, mapped_genes)
+cat("Number of mapped genes:", length(mapped_genes), "\n")
+cat("Number of unmapped genes:", length(unmapped_genes), "\n")
 
-cat("Number of input genes:", length(gene_symbols), "\n")
-cat("Number mapped:", length(mapped_genes), "\n")
-cat("Number unmapped:", length(unmapped_genes), "\n")
+entrez_ids <- gcn_data$ENTREZID
+
+# -----------------------------
+# Step 3: Run GO enrichment (Biological Process)
+# -----------------------------
+edo <- enrichGO(
+  gene = entrez_ids,
+  OrgDb = org.Hs.eg.db,
+  keyType = "ENTREZID",
+  ont = "BP",            # Change ONTOLOGY here. Can only do one at a time
+  pAdjustMethod = "BH",
+  pvalueCutoff = 0.05,
+  qvalueCutoff = 0.2
+)
+
+
+# -----------------------------
+# Step 4: Convert to readable gene symbols
+# -----------------------------
+edox <- setReadable(edo, OrgDb = 'org.Hs.eg.db', keyType = 'ENTREZID')
+
+rm(edo, gene_data)
+```
+
+
+```{r}
+# -----------------------------
+# Step 5: Make cnetplots (no fold-change, no filtering)
+# -----------------------------
+# Basic
+p1 <- cnetplot(edox)
+
+# Category node size scaled by p-value
+p2 <- cnetplot(edox, showCategory = 2)
+p2
+
+# Circular layout with colored edges
+p3 <- cnetplot(edox, circular = TRUE, colorEdge = TRUE)
+
+# Combine plots
+cowplot::plot_grid(
+  p1, p2, p3,
+  ncol = 3,
+  labels = LETTERS[1:3],
+  rel_widths = c(.8, .8, 1.2)
+)
 ```
