@@ -1,1 +1,1 @@
-# go_pipeline_protein_data
+# Coffey Lab Data Projects
