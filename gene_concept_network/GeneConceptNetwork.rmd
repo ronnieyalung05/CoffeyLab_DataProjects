@@ -1,0 +1,53 @@
+```{r}
+# Step 0: Install/load packages
+if (!requireNamespace("BiocManager", quietly=TRUE))
+    install.packages("BiocManager")
+
+BiocManager::install(c("clusterProfiler", "org.Hs.eg.db", "enrichplot", "cowplot"))
+
+library(clusterProfiler)
+library(org.Hs.eg.db)
+library(enrichplot)
+library(cowplot)
+library(dplyr)
+```
+
+```{r}
+# -----------------------------
+# Step 1: Create project-specific dataframe
+# -----------------------------
+# Extract only GeneSymbols column
+gcn_data <- sample_data_normalized %>% 
+  select(GeneSymbol) %>% 
+  distinct()  # remove duplicates
+
+# Optional: if you have fold changes or numeric data
+# gcn_data$log2FC <- protein_data_normalized$log2FC
+
+gene_symbols <- gcn_data$GeneSymbol
+
+# -----------------------------
+# Step 2: Clean gene symbols
+# -----------------------------
+gene_symbols <- toupper(trimws(gene_symbols))  # remove spaces, make uppercase
+```
+
+```{r}
+# -----------------------------
+# Step 3: Map GeneSymbols → Entrez IDs
+# -----------------------------
+gcf_df <- bitr(
+  gene_symbols,
+  fromType = "SYMBOL",
+  toType = "ENTREZID",
+  OrgDb = org.Hs.eg.db
+)
+
+# Check how many failed to map
+mapped_genes   <- gcf_df$SYMBOL
+unmapped_genes <- setdiff(gene_symbols, mapped_genes)
+
+cat("Number of input genes:", length(gene_symbols), "\n")
+cat("Number mapped:", length(mapped_genes), "\n")
+cat("Number unmapped:", length(unmapped_genes), "\n")
+```
