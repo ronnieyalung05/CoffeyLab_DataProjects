@@ -56,72 +56,21 @@ run_sample_semantic_analysis <- function(sample_list) {
   # --- Step 3: Filter valid SYMBOLs ---
   valid_symbols <- keys(org.Hs.eg.db, keytype = "SYMBOL")
   top_genes_valid <- intersect(top_genes, valid_symbols)
-  if(length(top_genes_valid) == 0) stop("None of the selected genes are valid SYMBOLs in org.Hs.eg.db.")
+  omitted <- setdiff(top_genes, top_genes_valid)
+  cat(length(omitted), "gene(s) were not found in org.Hs.eg.db and will be skipped:\n")
+  if(length(omitted) > 0) print(omitted)
   
-  # --- Step 4: Robust Entrez ID mapping ---
-  # mapIds
-  entrez_mapids <- mapIds(org.Hs.eg.db, keys = top_genes_valid,
-                          column = "ENTREZID", keytype = "SYMBOL", multiVals = "first")
+  cat("Number of usable genes for semantic similarity:", length(top_genes_valid), "\n")
+  if(length(top_genes_valid) < 2) stop("Too few genes for semantic similarity. Increase top N.")
   
-  # bitr for any missing
-  missing_genes <- names(entrez_mapids)[is.na(entrez_mapids)]
-  if(length(missing_genes) > 0){
-    bitr_df <- bitr(missing_genes, fromType = "SYMBOL", toType = "ENTREZID", OrgDb = org.Hs.eg.db)
-    for(i in seq_len(nrow(bitr_df))){
-      entrez_mapids[bitr_df$SYMBOL[i]] <- bitr_df$ENTREZID[i]
-    }
-  }
-  
-  # Remove NAs and duplicates
-  genes_entrez <- entrez_mapids[!is.na(entrez_mapids)]
-  genes_entrez <- genes_entrez[!duplicated(names(genes_entrez))]
-  
-  # Report
-  mapped_genes <- names(genes_entrez)
-  omitted_genes <- setdiff(top_genes, mapped_genes)
-  cat(length(omitted_genes), "gene(s) were omitted due to missing Entrez ID mapping:\n")
-  if(length(omitted_genes) > 0) print(omitted_genes)
-  cat("Number of usable genes for semantic similarity:", length(genes_entrez), "\n")
-  
-  if(length(genes_entrez) < 2) stop("Too few genes mapped for semantic similarity. Increase top N.")
-  
-  # --- Step 5: GO semantic data ---
+  # --- Step 4: GO semantic data ---
   cat("Preparing GO semantic data...\n")
-  hsGO <- godata("org.Hs.eg.db", ont = "BP") # THIS IS WHERE YOU CHANGE ONTOLOGY
+  hsGO <- godata("org.Hs.eg.db", ont = "BP", keytype = "SYMBOL") # SYMBOL-based
   
-# --- Step 6: Compute semantic similarity robustly ---
-sim <- mgeneSim(genes_entrez, semData = hsGO, measure = "Wang", drop = "IEA", combine = "BMA") 
-
-#___
-# Step 1: Create a lookup table from ENTREZ ID to SYMBOL
-entrez_to_symbol <- setNames(names(genes_entrez), genes_entrez)
-# names(entrez_to_symbol) = ENTREZ IDs
-# values(entrez_to_symbol) = SYMBOLs
-
-# Step 2: Find which ENTREZ IDs in sim have a corresponding SYMBOL
-sim_ids <- rownames(sim)
-valid_ids <- sim_ids[sim_ids %in% names(entrez_to_symbol)]
-dropped_ids <- sim_ids[!sim_ids %in% names(entrez_to_symbol)]
-
-if(length(dropped_ids) > 0) {
-  cat(length(dropped_ids), "gene(s) in sim have no SYMBOL mapping:\n")
-  print(dropped_ids)
-}
-
-# Step 3: Subset sim to only valid IDs
-sim <- sim[valid_ids, valid_ids, drop = FALSE]
-
-# Step 4: Rename rows and columns to SYMBOLs
-rownames(sim) <- entrez_to_symbol[valid_ids]
-colnames(sim) <- entrez_to_symbol[valid_ids]
-
-# Now sim has SYMBOL row/col names, all valid
-print(sim)
-
-#___
-
-
-  # --- Step 7: Heatmap ---
+  # --- Step 5: Compute semantic similarity ---
+  sim <- mgeneSim(top_genes_valid, semData = hsGO, measure = "Wang", drop = "IEA", combine = "BMA") 
+  
+  # --- Step 6: Heatmap ---
   cat("Plotting semantic similarity heatmap...\n")
   pheatmap(sim, 
            clustering_method = "ward.D", 
@@ -130,15 +79,14 @@ print(sim)
            number_format = "%.2f",
            main = paste("Semantic similarity heatmap:", sample_names[sample_index]))
   
-  # --- Step 8: Dendrogram ---
+  # --- Step 7: Dendrogram ---
   cat("Plotting dendrogram...\n")
   hc <- hclust(as.dist(1 - sim), method = "ward.D")
   p <- ggtree(hc) + geom_tiplab() + xlim(NA, 0.5)
   print(p)
   
-  # --- Step 9: Return similarity matrix ---
+  # --- Step 8: Return similarity matrix ---
   return(sim)
 }
-
 
 ```
