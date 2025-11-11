@@ -85,6 +85,8 @@ sample_data_normalized <- sample_data_normalized %>%
   # Remove unwanted columns
   dplyr::select(-`#`, -`Accession Number`)
 
+names(sample_data_normalized)[1] <- "IdentifiedProteins"
+
 # We no longer need sample_data_raw. If you want to clean your data environment, run the below code:
 # rm(sample_data_raw)
 ```

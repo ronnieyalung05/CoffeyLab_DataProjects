@@ -20,6 +20,8 @@ gpr_list <- lapply(numeric_cols_gpr, function(colname) {
 
 # name each element in the list by its column
 names(gpr_list) <- numeric_cols_gpr
+
+rm(gpr_data)
 ```
 
 
@@ -46,3 +48,4 @@ view_gost_plots_menu(gost_results)
 # n = shows the top n genes globally. so if the top 8 are only in HCF_S, it'll show just that. if part of that top 8 is in more than one sample, it'll show just those samples. (not useful in our case? not sure, but it's similar to what I had originally so I decided to keep it as a functionality)
 plot_heatmap_gost_menu(gost_results)
 ```
+# TODO: filter top n -> n -> want it so each sample contributes their top n (might get n+20), and then plots themn all on the same heatmap

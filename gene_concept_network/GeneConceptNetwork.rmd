@@ -23,6 +23,8 @@ library(dplyr)
 # Step 1: Prepare gene list
 # -----------------------------
 # Assume protein_data_normalized is your dataframe with a column "GeneSymbols"
+s <- gpr_list$HNPCC_CL$GeneSymbol
+
 gene_data <- sample_data_normalized %>%
   select(GeneSymbol) %>%
   distinct()
