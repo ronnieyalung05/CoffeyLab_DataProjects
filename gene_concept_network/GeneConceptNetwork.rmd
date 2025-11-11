@@ -7,9 +7,6 @@ if (!requireNamespace("BiocManager", quietly = TRUE)) install.packages("BiocMana
 # Install Bioconductor packages if not already installed
 BiocManager::install(c("clusterProfiler", "org.Hs.eg.db", "enrichplot", "cowplot"), ask=FALSE)
 
-# Install CRAN packages if not already installed
-install.packages("dplyr")
-
 # Load libraries
 library(clusterProfiler)
 library(org.Hs.eg.db)
@@ -18,79 +15,105 @@ library(cowplot)
 library(dplyr)
 ```
 
+
+# get the right type of data
 ```{r}
-# -----------------------------
-# Step 1: Prepare gene list
-# -----------------------------
-# Assume protein_data_normalized is your dataframe with a column "GeneSymbols"
-s <- gpr_list$HNPCC_CL$GeneSymbol
+gcn_data <- lapply(names(gpr_list), function(sample_name) {
+  sample_df <- gpr_list[[sample_name]]
+  
+  # Keep unique gene symbols
+  df <- sample_df %>%
+    dplyr::filter(!is.na(GeneSymbol) & !is.na(.data[[sample_name]])) %>%
+    dplyr::distinct(GeneSymbol, .keep_all = TRUE)
+  
+  vals <- as.numeric(df[[sample_name]])
+  names(vals) <- df$GeneSymbol
+  
+  # Identify duplicates
+  duplicated_vals <- vals[duplicated(vals)]
+  
+  # For each duplicated value, slightly perturb its copies
+  if (length(duplicated_vals) > 0) {
+    for (v in duplicated_vals) {
+      idx <- which(vals == v)
+      vals[idx] <- vals[idx] + seq_along(idx) * 1e-6
+    }
+  }
+  
+  # Sort decreasing
+  vals <- sort(vals, decreasing = TRUE)
+  
+  return(vals)
+})
 
-gene_data <- sample_data_normalized %>%
-  select(GeneSymbol) %>%
-  distinct()
-
-# TODO: need to figure out how we want to choose what genes were looking at, because there's way too much data at the moment
-gene_symbols <- toupper(trimws(gene_data$GeneSymbol))  # clean symbols
-
-# -----------------------------
-# Step 2: Map GeneSymbols → Entrez IDs
-# -----------------------------
-gcn_data <- bitr(
-  gene_symbols,
-  fromType = "SYMBOL",
-  toType = "ENTREZID",
-  OrgDb = org.Hs.eg.db
-)
-
-mapped_genes   <- gcn_data$SYMBOL
-unmapped_genes <- setdiff(gene_symbols, mapped_genes)
-cat("Number of mapped genes:", length(mapped_genes), "\n")
-cat("Number of unmapped genes:", length(unmapped_genes), "\n")
-
-entrez_ids <- gcn_data$ENTREZID
-
-# -----------------------------
-# Step 3: Run GO enrichment (Biological Process)
-# -----------------------------
-edo <- enrichGO(
-  gene = entrez_ids,
-  OrgDb = org.Hs.eg.db,
-  keyType = "ENTREZID",
-  ont = "BP",            # Change ONTOLOGY here. Can only do one at a time
-  pAdjustMethod = "BH",
-  pvalueCutoff = 0.05,
-  qvalueCutoff = 0.2
-)
-
-
-# -----------------------------
-# Step 4: Convert to readable gene symbols
-# -----------------------------
-edox <- setReadable(edo, OrgDb = 'org.Hs.eg.db', keyType = 'ENTREZID')
-
-rm(edo, gene_data)
+names(gcn_data) <- names(gpr_list)
 ```
 
-
+# run function
 ```{r}
-# -----------------------------
-# Step 5: Make cnetplots (no fold-change, no filtering)
-# -----------------------------
-# Basic
-p1 <- cnetplot(edox)
+gcn_plots <- run_gsea_cnet(gcn_data$HNPCC_EX)
+```
 
-# Category node size scaled by p-value
-p2 <- cnetplot(edox, showCategory = 2)
-p2
+# plot
+```{r}
+gcn_plots$p3
+```
 
-# Circular layout with colored edges
-p3 <- cnetplot(edox, circular = TRUE, colorEdge = TRUE)
-
-# Combine plots
-cowplot::plot_grid(
-  p1, p2, p3,
-  ncol = 3,
-  labels = LETTERS[1:3],
-  rel_widths = c(.8, .8, 1.2)
-)
+# function that combines expression-value-gsea and gcn
+```{r}
+run_gsea_cnet <- function(desc_gene_list) {
+  # Run GSEA with GO Biological Process
+  gsea_res <- gseGO(
+    geneList = desc_gene_list,
+    OrgDb = org.Hs.eg.db,
+    keyType = "SYMBOL",
+    ont = "BP",
+    minGSSize = 10,
+    maxGSSize = 500,
+    pvalueCutoff = 0.05,
+    verbose = FALSE,
+    scoreType="pos"
+  )
+  
+  # Make gene IDs readable
+  gsea_readable <- setReadable(gsea_res, OrgDb = org.Hs.eg.db, keyType = "SYMBOL")
+  
+  # Generate cnetplots
+  plots <- list()
+  
+  # Basic cnetplot with foldChange
+  plots$p1 <- cnetplot(
+    gsea_readable,
+    color.params = list(foldChange = desc_gene_list)
+  )
+  
+  # cnetplot with categorySize scaled by pvalue
+  plots$p2 <- cnetplot(
+    gsea_readable,
+    categorySize = "pvalue",
+    color.params = list(foldChange = desc_gene_list)
+  )
+  
+  # Circular plot with colored edges
+  plots$p3 <- cnetplot(
+    gsea_readable,
+    color.params = list(foldChange = desc_gene_list),
+    circular = TRUE,
+    colorEdge = TRUE
+  )
+  
+  # Labeling variations
+  plots$p4 <- cnetplot(gsea_readable, node_label = "category", cex_label_category = 1.2)
+  plots$p5 <- cnetplot(gsea_readable, node_label = "gene", cex_label_gene = 0.8)
+  plots$p6 <- cnetplot(gsea_readable, node_label = "all")
+  plots$p7 <- cnetplot(gsea_readable, node_label = "none", color_category = 'firebrick', color_gene = 'steelblue')
+  
+  # Combine first 3 plots in one grid (optional)
+  plots$grid1 <- cowplot::plot_grid(plots$p1, plots$p2, plots$p3, ncol = 3, labels = LETTERS[1:3], rel_widths = c(0.8, 0.8, 1.2))
+  
+  # Combine labeling variations in another grid
+  plots$grid2 <- cowplot::plot_grid(plots$p4, plots$p5, plots$p6, plots$p7, ncol = 2, labels = LETTERS[1:4])
+  
+  return(plots)
+}
 ```

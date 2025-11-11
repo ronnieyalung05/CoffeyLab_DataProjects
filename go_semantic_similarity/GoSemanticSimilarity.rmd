@@ -4,6 +4,68 @@
 # GSS_data <- gpr_list ;;; it's the same data. get it from gprofiler top function
 sim_matrix <- run_sample_semantic_analysis(gpr_list)
 ```
+
+# library simplot
 ```{r}
 DOSE::simplot(sim_matrix)
+```
+
+```{r}
+sim_matrix_ex <- run_semantic_analysis_from_excel()
+```
+
+# from excel to plot:
+```{r}
+run_semantic_analysis_from_excel <- function() {
+  library(readxl)
+  library(dplyr)
+  
+  # --- Step 0: Prompt user for Excel file ---
+  file_path <- file.choose(new = FALSE)
+  cat("Selected file:", file_path, "\n")
+  
+  # --- Step 1: Read Excel file ---
+  sheet_names <- excel_sheets(file_path)
+  cat("Available sheets:\n")
+  for (i in seq_along(sheet_names)) cat(i, ":", sheet_names[i], "\n")
+  
+  sheet_index <- as.integer(readline(prompt = "Enter the number of the sheet to use: "))
+  if(is.na(sheet_index) || sheet_index < 1 || sheet_index > length(sheet_names)) stop("Invalid sheet selection.")
+  
+  df <- read_excel(file_path, sheet = sheet_index)
+  cat("Data loaded. Columns:\n")
+  for(i in seq_along(colnames(df))) cat(i, ":", colnames(df)[i], "\n")
+  
+  # --- Step 2: Ask user for protein columns ---
+  prot_cols_input <- readline(prompt = "Enter the numbers of the protein/expression columns (comma-separated): ")
+  prot_cols <- as.integer(unlist(strsplit(prot_cols_input, ",")))
+  if(any(is.na(prot_cols)) || !all(prot_cols %in% seq_along(colnames(df)))) stop("Invalid column selection.")
+  
+  # --- Step 3: Ask user for GeneSymbol column ---
+  gs_col_input <- as.integer(readline(prompt = "Enter the number of the GeneSymbol column: "))
+  if(is.na(gs_col_input) || !(gs_col_input %in% seq_along(colnames(df)))) stop("Invalid column selection.")
+  
+  # --- Step 4: Prepare data ---
+  gpr_data <- df %>%
+    dplyr::select(all_of(prot_cols), all_of(gs_col_input)) %>%
+    rename(GeneSymbol = colnames(df)[gs_col_input])
+  
+  # --- Step 5: Create list of dataframes for each protein column ---
+  numeric_cols_gpr <- names(gpr_data)[sapply(gpr_data, is.numeric)]
+  
+  gpr_list <- lapply(numeric_cols_gpr, function(colname) {
+    gpr_data %>%
+      dplyr::select(all_of(colname), GeneSymbol) %>%
+      filter(.data[[colname]] != 0) %>%
+      arrange(dplyr::desc(.data[[colname]]))
+  })
+  
+  names(gpr_list) <- numeric_cols_gpr
+  
+  # --- Step 6: Run semantic analysis ---
+  sim_matrix <- run_sample_semantic_analysis(gpr_list)
+  
+  # Return the similarity matrix
+  return(sim_matrix)
+}
 ```
