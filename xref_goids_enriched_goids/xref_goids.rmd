@@ -1,12 +1,24 @@
 ### Cross check filter to keep proteins/rows in sample that have matching goIds with the same sample's enriched goIds
 
-# uses `sample_data_normalized` from intial_data_transformation, and `gost_results` (function 2) from gprofiler_enrichment_analysis
+# uses `sample_data_with_go` from annotation_retrieval_and_filtering, and `gost_results` (function 2) from gprofiler_enrichment_analysis
 ```{r}
 # one sample
 one_sample_go_filtered <- filter_proteins_by_gost(sample_data_with_go, gost_results$HNPCC_CL, sample_col = "HNPCC_CL")
 
 # all samples
 all_sample_go_filtered <- filter_all_sample_by_go(sample_data_with_go, gost_results)
+```
+
+```{r}
+# number of top proteins you want;... sort descending
+df_top <- all_sample_go_filtered$HNPCC_CL$filtered_data[order(all_sample_go_filtered$HNPCC_CL$filtered_data$HNPCC_CL, decreasing = TRUE), ]
+
+df_top <- head(df_top, 50)  # take top N rows
+```
+
+```{r}
+# filter by expression value cutoff (note, these values are normalized from their original values (log2))
+df_cutoff <- all_sample_go_filtered$HNPCC_CL$filtered_data[all_sample_go_filtered$HNPCC_CL$filtered_data$HNPCC_CL >= 5, ]
 ```
 
 # single sample enriched go cross check filter
