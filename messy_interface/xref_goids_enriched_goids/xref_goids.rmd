@@ -13,7 +13,7 @@ all_sample_go_filtered <- filter_all_sample_by_go(sample_data_with_go, gost_resu
 # number of top proteins you want;... sort descending
 df_top <- all_sample_go_filtered$HNPCC_CL$filtered_data[order(all_sample_go_filtered$HNPCC_CL$filtered_data$HNPCC_CL, decreasing = TRUE), ]
 
-df_top <- head(df_top, 50)  # take top N rows
+df_top <- head(df_top, 20)  # take top N rows
 ```
 
 ```{r}

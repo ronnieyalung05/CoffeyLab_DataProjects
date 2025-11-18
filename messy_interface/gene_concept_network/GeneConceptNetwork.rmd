@@ -56,7 +56,7 @@ gcn_plots <- run_gsea_cnet(gcn_data$HNPCC_EX)
 
 # plot
 ```{r}
-gcn_plots$p3
+gcn_plots$p5
 ```
 
 # function that combines expression-value-gsea and gcn

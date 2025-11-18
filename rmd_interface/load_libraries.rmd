@@ -1,0 +1,22 @@
+```{r}
+library(readxl)
+library(tools)
+library(dplyr)
+library(stringr)
+library(clusterProfiler)
+library(org.Hs.eg.db)
+library(httr)
+library(jsonlite)
+library(furrr)
+library(purrr)
+library(tibble)
+library(ggplot2)
+library(GOSemSim)
+library(ggtree)
+library(ape)
+library(pheatmap)
+library(reshape2)
+library(AnnotationDbi)
+library(tidyr)
+library(DOSE) # for gosemsimplot
+```

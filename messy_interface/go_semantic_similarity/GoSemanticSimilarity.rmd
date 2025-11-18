@@ -1,0 +1,11 @@
+# GOSemSim Stuff
+
+```{r}
+# GSS_data <- gpr_list ;;; it's the same data. get it from gprofiler top function
+sim_matrix <- run_sample_semantic_analysis(gpr_list)
+```
+
+# library simplot
+```{r}
+DOSE::simplot(sim_matrix)
+```

@@ -1,0 +1,102 @@
+#-------------------------------------------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------------------------------------------
+# This section will load the .xlsx file data, and then create the dataframes necessary for the subsequent functions
+# Will load into a large data variable named "data". `data` will have all of the different types of data formats for the functions
+
+## Load .xlsx file into `data` variable. Only .xlsx supported at the moment
+```{r}
+# Load data into `data` variable
+data <- list()
+data <- load_dataset(data, "sample_data_raw") # load_data.R
+
+#view(data$sample_data_raw)
+```
+
+## Clean data (Note: data needs to be formatted like the example .xlsx image (TODO: provide example image))
+```{r}
+data[["clean_data"]] <- clean_and_normalize_sample_data(data$sample_data_raw) # initial_clean.R
+```
+
+## GO annotation retrieval (GO:Ids, GO names, ontology)
+```{r}
+data[["clean_data"]]$cleaned <- add_go_annotations(data[["clean_data"]]$cleaned)
+```
+
+## Add columns and convert UniProtIds to all other relevant biological identifiers
+## -> Some Ids won't match (using bitr from clusterProfiler). Separate those
+```{r}
+data[["clean_data"]]$cleaned <- convert_uniprot_ids(data$clean_data$cleaned) # convert_uniprot_ids.R
+data$clean_data <- split_unmapped_ids(data$clean_data)
+```
+#-------------------------------------------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------------------------------------------
+
+
+# Now, we have the data cleaned, normalized, and properly transformed to include all identifiers for (valid) proteins in our list.
+# From here, we can do filtering, enrichment, and plotting, in any order.
+
+## Create Numeric DF(s)
+```{r}
+# Can make any numeric DF. Replace 'gene_symbols' with any new df you want created.
+# Can choose multiple columns by c("GeneSymbol", "EntrezID"), etc. in the second parameter
+data[["numeric_data"]]$gene_symbols <- create_numeric_df(data$clean_data$cleaned, "GeneSymbol")
+```
+
+## Gprofiler: GOST enrichment
+```{r}
+# Can add many gost results. replace 'all_sample_go_bp' with any name you want
+# Can use any df from the numeric_data df set (change $gene_symbols)
+# NOTE: Filtering Top N does it BEFORE enrichment analysis
+data[["gost_results"]]$all_samples_go_bp <- run_gost_menu_with_top_n(data$numeric_data$gene_symbols)
+```
+
+## Gprofiler: Enrichment plots (Gostplot, Heatmap)
+```{r}
+# GOST PLOT
+view_gost_plots_menu(data$gost_results$all_samples_go_bp)
+
+# HEATMAP
+
+# Filter Top N per group options:
+# y = shows the top n genes per sample.
+# n = shows the top n genes globally. so if the top 8 are only in HCF_S, it'll show just that. if part of that top 8 is in more than one sample, it'll show just those samples. (not useful in our case? not sure, but it's similar to what I had originally so I decided to keep it as a functionality)
+plot_heatmap_gost_menu(data$gost_results$all_samples_go_bp)
+```
+
+## Xref with Gprofiler Gost Results
+```{r}
+# one sample
+data[["xref_gost"]]$hnpcc_cl <- filter_proteins_by_gost(data$clean_data$cleaned, data$gost_results$all_samples_go_bp$HNPCC_CL, sample_col = "HNPCC_CL")
+
+# all samples
+data[["xref_gost"]]$all_samples_go_filtered <- filter_all_sample_by_go(data$clean_data$cleaned, data$gost_results$all_samples_go_bp)
+
+# number of top proteins you want;... sort descending
+data[["xref_gost"]]$top20_hnpcc_cl <- head(data$xref_gost$hnpcc_cl$filtered_data[order(data$xref_gost$hnpcc_cl$filtered_data$HNPCC_CL, decreasing = TRUE), ], 20)
+
+# filter by expression value cutoff (note, these values are normalized from their original values (log2))
+data[["xref_gost"]]$expr_above_5_hnpcc_cl <- data$xref_gost$hnpcc_cl$filtered_data[data$xref_gost$hnpcc_cl$filtered_data$HNPCC_CL >= 5, ]
+```
+
+## Go Semantic Similarity Analysis
+```{r}
+# shouldn't be any data loss since we got the symbols from the same database
+# need the $numeric_data$all_identifiers variable
+data[["semantic_similarity"]]$hnpcc_cl_go_bp <- run_sample_semantic_analysis(data$numeric_data$all_identifiers)
+
+DOSE::simplot(data[["semantic_similarity"]]$hnpcc_cl_go_bp)
+```
+
+## Gene Concept Network with GSEA
+```{r}
+#get proper data layout
+data[["gene_concept_network"]]$all_samples_data <- create_gcn_data(data$numeric_data$all_identifiers)
+
+# run for plots: shouldn't be any data loss since we got the symbols from the same database
+data[["gene_concept_network"]]$plots_hnpcc_ex_go_bp <- run_gsea_cnet(data$gene_concept_network$all_samples_data$HNPCC_EX)
+
+# display plots
+data$gene_concept_network$plots_hnpcc_ex_go_bp$p5
+```

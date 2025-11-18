@@ -65,7 +65,7 @@ run_sample_semantic_analysis <- function(sample_list) {
   
   # --- Step 4: GO semantic data ---
   cat("Preparing GO semantic data...\n")
-  hsGO <- godata("org.Hs.eg.db", ont = "BP", keytype = "SYMBOL") # SYMBOL-based
+  hsGO <- godata("org.Hs.eg.db", ont = "BP", keytype = "SYMBOL") # SYMBOL-based !!! This is where we change ONTOLOGY
   
   # --- Step 5: Compute semantic similarity ---
   sim <- mgeneSim(top_genes_valid, semData = hsGO, measure = "Wang", drop = "IEA", combine = "BMA") 

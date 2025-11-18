@@ -1,0 +1,67 @@
+# -----------------------------------------
+# Menu for viewing g:Profiler (gost) plots
+# -----------------------------------------
+
+view_gost_plots_menu <- function(gost_results) {
+  if (is.null(gost_results)) stop("❌ No g:Profiler results provided.")
+  
+  # First choice: single sample vs multi-sample
+  cat("\nSelect type of g:Profiler results to view:\n")
+  cat("[1] Single sample (one gost_results object)\n")
+  cat("[2] Multi-sample (list of gost_results, one per sample)\n")
+  
+  repeat {
+    choice1 <- readline(prompt = "\nEnter option number: ")
+    if (!grepl("^[1-2]$", choice1)) {
+      cat("Invalid input. Please enter 1 or 2.\n")
+    } else break
+  }
+  choice1 <- as.integer(choice1)
+  
+  if (choice1 == 1) {
+    # ----- SINGLE SAMPLE -----
+    cat("\n📊 Displaying single-sample g:Profiler results...\n")
+    print(gostplot(gost_results, capped = TRUE, interactive = TRUE))
+    return(invisible())
+  }
+  
+  # ----- MULTI-SAMPLE -----
+  cat("\nSelect multi-sample display mode:\n")
+  cat("[1] Interactive plots (no titles; separate interactive viewer windows)\n")
+  cat("[2] Non-interactive plots (static, titled with sample names)\n")
+  
+  repeat {
+    choice2 <- readline(prompt = "\nEnter option number: ")
+    if (!grepl("^[1-2]$", choice2)) {
+      cat("Invalid input. Please enter 1 or 2.\n")
+    } else break
+  }
+  choice2 <- as.integer(choice2)
+  
+  if (choice2 == 1) {
+    cat("\n📊 Displaying interactive plots for all samples...\n")
+    invisible(lapply(names(gost_results), function(sample_name) {
+      sample_result <- gost_results[[sample_name]]
+      if (!is.null(sample_result) && !is.null(sample_result$result)) {
+        cat("\n==============================\n")
+        cat("📊 Sample:", sample_name, "\n")
+        cat("==============================\n")
+        print(gostplot(sample_result, capped = TRUE, interactive = TRUE))
+      } else {
+        cat("⚠️ No valid g:Profiler results for", sample_name, "\n")
+      }
+    }))
+  } else {
+    cat("\n📊 Displaying static plots with sample titles...\n")
+    invisible(lapply(names(gost_results), function(sample_name) {
+      sample_result <- gost_results[[sample_name]]
+      if (!is.null(sample_result) && !is.null(sample_result$result)) {
+        p <- gostplot(sample_result, capped = TRUE, interactive = FALSE) +
+          ggtitle(paste("g:Profiler Results —", sample_name))
+        print(p)
+      } else {
+        cat("⚠️ No valid g:Profiler results for", sample_name, "\n")
+      }
+    }))
+  }
+}
