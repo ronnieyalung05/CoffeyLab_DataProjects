@@ -1,7 +1,7 @@
 ```{r}
 library(readxl)
+library(gprofiler2)
 library(tools)
-library(dplyr)
 library(stringr)
 library(clusterProfiler)
 library(org.Hs.eg.db)
@@ -16,7 +16,16 @@ library(ggtree)
 library(ape)
 library(pheatmap)
 library(reshape2)
+#if have to: BiocManager::install(c("GenomicFeatures", "AnnotationDbi"))
 library(AnnotationDbi)
 library(tidyr)
 library(DOSE) # for gosemsimplot
+library(dplyr)
+library(conflicted)
+
+conflict_prefer("select", "dplyr")
+conflict_prefer("filter", "dplyr")
+conflict_prefer("rename", "dplyr")
+conflict_prefer("slice", "dplyr")
+conflict_prefer("content", "httr")
 ```
