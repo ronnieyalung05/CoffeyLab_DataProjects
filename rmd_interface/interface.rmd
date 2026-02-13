@@ -4,13 +4,20 @@
 # This section will load the .xlsx file data, and then create the dataframes necessary for the subsequent functions
 # Will load into a large data variable named "data". `data` will have all of the different types of data formats for the functions
 
+## First, load libraries
+```{r}
+source("pre_interface_functions/data_load_and_transform/all_func.R")
+source("pre_interface_functions/protein_enrichment/all_func.R")
+source("pre_interface_functions/filtering/all_func.R")
+source("pre_interface_functions/plots/all_func.R")
+```
 
 ## Load .xlsx file into `data` variable. Only .xlsx supported at the moment
 ```{r}
 # Load data into `data` variable
 data <- list()
 data <- load_dataset(data, "raw_sample_data") # load_data.R; works with .xlsx files
-
+#data <- load_dataset(data, "DATA2")
 #view(data$raw_sample_data)
 ```
 
@@ -43,6 +50,11 @@ data[["analysis_data"]] <- normalize_log(data$clean_data$analysis_data, 2:11, 2)
 # Run this, if you don't want to normalize the data. Puts analysis_data in a nicer location
 ```{r}
 #data[["analysis_data"]] <- data$clean_data$cleaned_data
+
+# Change names so they work in other functions
+
+#names(data$DATA2)[names(data$DATA2) == "UNIPROT ID"] <- "UniProtID"
+#names(data$DATA2)[names(data$DATA2) == "Gene Name"] <- "GeneSymbols"
 ```
 
 
@@ -50,7 +62,9 @@ data[["analysis_data"]] <- normalize_log(data$clean_data$analysis_data, 2:11, 2)
 ```{r}
 # Requires UniProtIDs. function as follows=> add_go_annotation(df, uniprot_colname)
 data[["analysis_data"]] <- add_go_annotations(data[["analysis_data"]], uniprot_col = "UniProtID")
+data[["DATA2"]] <- add_go_annotations(data[["DATA2"]], uniprot_col = "UniProtID")
 ```
+
 
 
 ## Create Numeric DF(s)
@@ -58,9 +72,11 @@ These numeric dataframes are required for the structure of below functions and a
 ```{r}
 # Can make any numeric DF. Replace 'gene_symbols' with any new df you want created.
 # Can choose multiple columns by c("GeneSymbol", "EntrezID"), etc. in the second parameter
-data[["numeric_data"]]$gene_symbols <- create_numeric_df(data$analysis_data, "GeneSymbol")
+data[["numeric_data"]]$analysis_gene_symbols <- create_numeric_df(data$analysis_data, "GeneSymbol")
+data[["numeric_data"]]$DATA2_gene_symbols <- create_numeric_df(data$DATA2, "GeneSymbol")
 
-data[["numeric_data"]]$all_identifiers <- create_numeric_df(data$analysis_data, c("GeneSymbol", "EntrezID", "UniProtID"))
+
+#data[["numeric_data"]]$all_identifiers <- create_numeric_df(data$analysis_data, c("GeneSymbol", "EntrezID", "UniProtID"))
 ```
 #-------------------------------------------------------------------------------------------------------------------
 #-------------------------------------------------------------------------------------------------------------------
@@ -75,7 +91,7 @@ data[["numeric_data"]]$all_identifiers <- create_numeric_df(data$analysis_data, 
 # Now, we have the data cleaned, normalized, and properly transformed and structured to include all identifiers for (valid) proteins in our list.
 # From here, we can do filtering, enrichment, and plotting, in any order.
 
-## Gprofiler: GOST enrichment
+## Gprofiler: GOST enrichment (numeric gene symbol)
 ```{r}
 # Can add many gost results. replace 'all_sample_go_bp' with any name you want
 
@@ -83,10 +99,67 @@ data[["numeric_data"]]$all_identifiers <- create_numeric_df(data$analysis_data, 
 
 # CRITICAL: this particular GOST requires genesymbol numeric_data
 
-data[["gost_results"]]$all_samples_go_bp <- run_gost_menu(data$numeric_data$gene_symbols)
+data[["gost_results"]]$data1_all_samples_go_bp <- run_gost_menu(data$numeric_data$analysis_gene_symbols)
+data[["gost_results"]]$data2_all_samples_go_bp <- run_gost_menu(data$numeric_data$DATA2_gene_symbols)
 ```
 
-## Gprofiler: Enrichment plots (Gostplot, Heatmap)
+
+
+
+
+
+## Xref with Gprofiler Gost Results (analysis data and gost results)
+This basically just cross references our original analysis data with our gost results, and keeps only the data that were in both sets (i.e. analysis_data that is significant). Checks via GO:ID
+
+Below are examples of use cases. use for reference, as the arguments/parameters for the functions can get long and convoluted
+```{r}
+# one sample
+data[["xref_gost"]]$hnpcc_cl <- filter_proteins_by_gost(data$analysis_data, data$gost_results$all_samples_go_bp$HNPCC_CL, sample_col = "HNPCC_CL")
+```
+
+```{r}
+# all samples
+data[["xref_gost"]]$data1_all_samples <- filter_all_sample_by_go(data$analysis_data, data$gost_results$data1_all_samples_go_bp)
+data[["xref_gost"]]$data2_all_samples <- filter_all_sample_by_go(data$DATA2, data$gost_results$data2_all_samples_go_bp)
+```
+
+```{r}
+# number of top proteins you want;... sort descending
+data[["xref_gost"]]$top20_hnpcc_cl <- head(data$xref_gost$hnpcc_cl$filtered_data[order(data$xref_gost$hnpcc_cl$filtered_data$HNPCC_CL, decreasing = TRUE), ], 20)
+```
+
+```{r}
+# filter by expression value cutoff (note, these values may be normalized from their original values (log2))
+data[["xref_gost"]]$expr_above_5_hnpcc_cl <- data$xref_gost$hnpcc_cl$filtered_data[data$xref_gost$hnpcc_cl$filtered_data$HNPCC_CL >= 5, ]
+```
+
+
+
+## Numeric DFs after xref (xref data)
+```{r}
+data[["numeric_data"]]$data2_test <- create_numeric_df(data$xref_gost$data2_all_samples$Supermere_2D_S7$filtered_data, "GeneSymbol")
+
+# Generate the new data, keep renaming the set.
+#Supermere_2D_S8 <- create_numeric_df(data$xref_gost$data2_all_samples$Supermere_2D_S8$filtered_data, "GeneSymbol")
+
+# Append the new list to the existing one
+#data[["numeric_data"]]$data2_test <- c(data[["numeric_data"]]$data2_test, Supermere_2D_S8)
+
+# Process all 14 samples in data2_all_samples automatically
+# 1. Map the function across all samples to get a list of lists
+temp_list <- base::lapply(data$xref_gost$data2_all_samples, function(sample) {
+  create_numeric_df(sample$filtered_data, "GeneSymbol")
+})
+
+# 2. Use do.call to 'c' (combine) them all into one flat list
+# This mimics: c(sample7_list, sample8_list, sample9_list...)
+data[["numeric_data"]]$data2_test <- base::do.call(base::c, temp_list)
+```
+
+
+
+
+## Gprofiler: Enrichment plots (Gostplot, Heatmap) (gost results)
 ```{r}
 # GOST PLOT --> I believe displayed significance in terms of p-value
 view_gost_plots_menu(data$gost_results$all_samples_go_bp)
@@ -104,54 +177,23 @@ plot_heatmap_gost_menu(data$gost_results$all_samples_go_bp)
 
 
 
-
-
-
-## Xref with Gprofiler Gost Results
-This basically just cross references our original analysis data with our gost results, and keeps only the data that were in both sets (i.e. analysis_data that is significant). Checks via GO:ID
-
-Below are examples of use cases. use for reference, as the arguments/parameters for the functions can get long and convoluted
-```{r}
-# one sample
-data[["xref_gost"]]$hnpcc_cl <- filter_proteins_by_gost(data$analysis_data, data$gost_results$all_samples_go_bp$HNPCC_CL, sample_col = "HNPCC_CL")
-```
-
-```{r}
-# all samples
-data[["xref_gost"]]$all_samples_go_filtered <- filter_all_sample_by_go(data$analysis_data, data$gost_results$all_samples_go_bp)
-```
-
-```{r}
-# number of top proteins you want;... sort descending
-data[["xref_gost"]]$top20_hnpcc_cl <- head(data$xref_gost$hnpcc_cl$filtered_data[order(data$xref_gost$hnpcc_cl$filtered_data$HNPCC_CL, decreasing = TRUE), ], 20)
-```
-
-```{r}
-# filter by expression value cutoff (note, these values may be normalized from their original values (log2))
-data[["xref_gost"]]$expr_above_5_hnpcc_cl <- data$xref_gost$hnpcc_cl$filtered_data[data$xref_gost$hnpcc_cl$filtered_data$HNPCC_CL >= 5, ]
-```
-
-
-
-
-
-
-## Go Semantic Similarity Analysis
+## Go Semantic Similarity Analysis (numeric dfs)
 ```{r}
 # shouldn't be any data loss since we got the symbols from the same database
 
 # need the $numeric_data$all_identifiers variable, so then we ensure the max amount of coverage (sometimes, a database won't have data for a particular identifier)
 
-data[["semantic_similarity"]]$hnpcc_cl_go_bp <- run_sample_semantic_analysis(data$numeric_data$gene_symbols)
+data[["semantic_similarity"]]$data2_one <- run_sample_semantic_analysis(data$numeric_data$data2_test)
 
-DOSE::simplot(data[["semantic_similarity"]]$hnpcc_cl_go_bp)
+DOSE::simplot(data[["semantic_similarity"]]$data2_comb)
+DOSE::simplot(data[["semantic_similarity"]]$data2_one)
 ```
 
 
 
 
 
-## Gene Concept Network with GSEA
+## Gene Concept Network with GSEA (numeric data)
 NOTE: ISN'T CURRENTLY WORKING BECAUSE OF CHANGES IN THE LIBRARY (enrichplot package v1.28+ have been changed significantly)
 ```{r}
 #get proper data layout

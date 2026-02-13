@@ -1,15 +1,69 @@
 run_sample_semantic_analysis <- function(sample_list, ontologies = c("BP", "MF", "CC")) {
-  # --- Step 1: Select sample ---
+  # --- Step 1: Select sample(s) ---
   cat("Available samples:\n")
   sample_names <- base::names(sample_list)
   for (i in seq_along(sample_names)) cat(i, ":", sample_names[i], "\n")
   
-  sample_index <- as.integer(readline(prompt = "Enter the number of the sample you want to analyze: "))
-  if (is.na(sample_index) || sample_index < 1 || sample_index > length(sample_names)) stop("Invalid selection.")
+  sample_input <- readline(prompt = "Enter the number(s) of the sample(s) you want to analyze (comma-separated for multiple, e.g., 1,2,3): ")
+  sample_indices <- as.integer(strsplit(sample_input, ",")[[1]])
   
-  selected_sample <- sample_list[[sample_index]]
+  if (any(is.na(sample_indices)) || any(sample_indices < 1) || any(sample_indices > length(sample_names))) {
+    stop("Invalid selection.")
+  }
   
-  # --- Step 2: Use GeneSymbol as identifier ---
+  # --- Step 2: Combine samples if multiple selected ---
+  if (length(sample_indices) == 1) {
+    # Single sample: use as-is
+    selected_sample <- sample_list[[sample_indices]]
+    selected_sample_names <- sample_names[sample_indices]
+    
+    # Automatically detect the numeric column
+    numeric_cols <- base::colnames(selected_sample)[base::sapply(selected_sample, base::is.numeric)]
+    if (length(numeric_cols) == 0) stop("No numeric columns found for expression values.")
+    expr_col <- numeric_cols[1]
+    cat("Using expression column:", expr_col, "\n")
+    
+  } else {
+    # Multiple samples: combine them
+    cat("\nCombining", length(sample_indices), "samples...\n")
+    
+    # Collect all gene-value pairs from selected samples
+    all_genes <- list()
+    for (idx in sample_indices) {
+      current_sample <- sample_list[[idx]]
+      genes <- base::as.character(current_sample$GeneSymbol)
+      
+      # Automatically detect the numeric column
+      numeric_cols <- base::colnames(current_sample)[base::sapply(current_sample, base::is.numeric)]
+      if (length(numeric_cols) == 0) stop("No numeric columns found in sample ", sample_names[idx])
+      values <- current_sample[[numeric_cols[1]]]
+      
+      for (j in seq_along(genes)) {
+        gene <- genes[j]
+        if (!gene %in% names(all_genes)) {
+          all_genes[[gene]] <- c()
+        }
+        all_genes[[gene]] <- c(all_genes[[gene]], values[j])
+      }
+    }
+    
+    # Average values for genes appearing in multiple samples
+    combined_genes <- names(all_genes)
+    combined_values <- sapply(all_genes, mean)
+    
+    # Create combined dataframe with generic column name
+    selected_sample <- data.frame(
+      GeneSymbol = combined_genes,
+      expr_value = combined_values,
+      stringsAsFactors = FALSE
+    )
+    expr_col <- "expr_value"
+    
+    selected_sample_names <- paste(sample_names[sample_indices], collapse = " + ")
+    cat("Combined", length(combined_genes), "unique genes\n\n")
+  }
+  
+  # --- Step 2b: Use GeneSymbol as identifier ---
   gene_ids <- base::as.character(selected_sample$GeneSymbol)
   
   # --- Step 3: Select ontology ---
@@ -21,13 +75,6 @@ run_sample_semantic_analysis <- function(sample_list, ontologies = c("BP", "MF",
   selected_ont <- ontologies[ont_index]
   
   # --- Step 4: Top N genes ---
-  numeric_cols <- base::colnames(selected_sample)[base::sapply(selected_sample, base::is.numeric)]
-  if (length(numeric_cols) == 0) stop("No numeric columns found for expression values.")
-  
-  cat("Available expression columns:\n")
-  for (i in seq_along(numeric_cols)) cat(i, ":", numeric_cols[i], "\n")
-  expr_index <- as.integer(readline(prompt = "Select numeric column for expression values: "))
-  expr_col <- numeric_cols[expr_index]
   expr_vector <- selected_sample[[expr_col]]
   
   top_n <- as.integer(readline(prompt = "Enter the number of top expressed genes to select: "))
@@ -60,7 +107,7 @@ run_sample_semantic_analysis <- function(sample_list, ontologies = c("BP", "MF",
     color = grDevices::colorRampPalette(c("white", "red"))(50),
     display_numbers = TRUE,
     number_format = "%.2f",
-    main = paste("Semantic similarity heatmap:", sample_names[sample_index])
+    main = paste("Semantic similarity heatmap:", selected_sample_names)
   )
   
   # --- Step 9: Dendrogram ---
