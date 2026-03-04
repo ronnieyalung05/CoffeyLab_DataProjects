@@ -32,11 +32,22 @@ load_dataset <- function(data_list = list(), name = "", file_path = NULL, origin
 CACHE_DIR <- "session_cache"
 
 save_data_store <- function(data_list) {
-  if (!dir.exists(CACHE_DIR)) dir.create(CACHE_DIR)
-  saveRDS(data_list, file.path(CACHE_DIR, "data_store.rds"))
+  tryCatch({
+    if (!dir.exists(CACHE_DIR)) dir.create(CACHE_DIR, recursive = TRUE)
+    saveRDS(data_list, file.path(CACHE_DIR, "data_store.rds"))
+  }, error = function(e) {
+    # silently fail on read-only filesystems (e.g. shinyapps.io)
+    warning(paste("Could not save data store:", e$message))
+  })
 }
 
 load_data_store <- function() {
-  path <- file.path(CACHE_DIR, "data_store.rds")
-  if (file.exists(path)) readRDS(path) else list()
+  tryCatch({
+    path <- file.path(CACHE_DIR, "data_store.rds")
+    if (file.exists(path)) readRDS(path) else list()
+  }, error = function(e) {
+    # return empty list if cache unreadable instead of crashing
+    warning(paste("Could not load data store:", e$message))
+    list()
+  })
 }

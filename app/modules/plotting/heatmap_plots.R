@@ -6,7 +6,7 @@ heatmapPlotUI <- function(id) {
     
     h4("GO Enrichment Heatmap Generator"),
     p(style = "color: #888; font-size: 0.85em;",
-      "Requires a flat g:Profiler results dataset (no __raw__ prefix)."),
+      "Requires a flat g:Profiler/gost results dataset (no __raw__ prefix). Uses pvalues for heatmap generation"),
     
     selectInput(ns("gost_df"), "g:Profiler results dataset", choices = NULL),
     

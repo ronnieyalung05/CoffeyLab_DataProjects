@@ -1,5 +1,38 @@
 source("sources.R")
 
+server <- function(input, output, session) {
+    # THIS is your persistent dataframe + plot store — a named list of dataframes and plots
+    # .rds files are found in session_cache; it is best not to mess with those files directly
+    # modules receives this and can read or update it
+    data_store <- reactiveVal(load_data_store())
+    plot_store <- reactiveVal(load_plot_store())
+  
+    # data manager
+    dataLoadServer("dataLoad", data_store)
+    dataViewerServer("dataViewer", data_store)
+    renameDataServer("renameData", data_store)
+    cleanDataServer("cleanData",   data_store)
+    dataDeleteServer("dataDelete", data_store)
+    dataSaveServer("dataSave", data_store) 
+
+    # add identifiers
+    convertIdsServer("convertIds", data_store) 
+    goAnnotationsServer("goAnnotations", data_store)
+
+    # enrichment
+    gostAnalysisServer("gostAnalysis", data_store)
+
+    # filtering
+    filterProteinsServer("filterProteins", data_store)
+
+    # plotting
+    gostPlotServer("gostPlot", data_store, plot_store)
+    heatmapPlotServer("heatmapPlot", data_store, plot_store) 
+    plotViewerServer("plotViewer", plot_store) 
+    goSemSimServer("goSemSim", data_store, plot_store)
+    gseaCnetServer("gseaCnet", data_store, plot_store)
+}
+
 ui <- page_navbar(
     title = "Functional Analysis of Proteomic Data",
 
@@ -46,37 +79,6 @@ ui <- page_navbar(
 
 )
 
-server <- function(input, output, session) {
-    # THIS is your persistent dataframe + plot store — a named list of dataframes and plots
-    # .rds files are found in session_cache; it is best not to mess with those files directly
-    # modules receives this and can read or update it
-    data_store <- reactiveVal(load_data_store())
-    plot_store <- reactiveVal(load_plot_store())
-  
-    # data manager
-    dataLoadServer("dataLoad", data_store)
-    dataViewerServer("dataViewer", data_store)
-    renameDataServer("renameData", data_store)
-    cleanDataServer("cleanData",   data_store)
-    dataDeleteServer("dataDelete", data_store)
-    dataSaveServer("dataSave", data_store) 
 
-    # add identifiers
-    convertIdsServer("convertIds", data_store) 
-    goAnnotationsServer("goAnnotations", data_store)
-
-    # enrichment
-    gostAnalysisServer("gostAnalysis", data_store)
-
-    # filtering
-    filterProteinsServer("filterProteins", data_store)
-
-    # plotting
-    gostPlotServer("gostPlot", data_store, plot_store)
-    heatmapPlotServer("heatmapPlot", data_store, plot_store) 
-    plotViewerServer("plotViewer", plot_store) 
-    goSemSimServer("goSemSim", data_store, plot_store)
-    gseaCnetServer("gseaCnet", data_store, plot_store)
-}
 
 shinyApp(ui, server)

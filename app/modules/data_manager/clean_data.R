@@ -5,7 +5,7 @@ cleanDataUI <- function(id) {
   tagList(
     
     h4("Clean Dataset"),
-    selectInput(ns("clean_source"), "Select dataset to clean (only for data formatted as shown in example dataset)", choices = NULL),
+    selectInput(ns("clean_source"), "Select dataset to clean (only for data formatted from Scaffold 'sample view' export)", choices = NULL),
     actionButton(ns("run_clean"), "Run Cleaning",
                  style = "color: white; background-color: #2980b9;"),
     uiOutput(ns("clean_status")),
