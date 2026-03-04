@@ -17,7 +17,7 @@ source("pre_interface_functions/plots/all_func.R")
 # Load data into `data` variable
 data <- list()
 data <- load_dataset(data, "raw_sample_data") # load_data.R; works with .xlsx files
-#data <- load_dataset(data, "DATA2")
+data <- load_dataset(data, "DATA2")
 #view(data$raw_sample_data)
 ```
 
@@ -53,8 +53,8 @@ data[["analysis_data"]] <- normalize_log(data$clean_data$analysis_data, 2:11, 2)
 
 # Change names so they work in other functions
 
-#names(data$DATA2)[names(data$DATA2) == "UNIPROT ID"] <- "UniProtID"
-#names(data$DATA2)[names(data$DATA2) == "Gene Name"] <- "GeneSymbols"
+names(data$DATA2)[names(data$DATA2) == "UNIPROT ID"] <- "UniProtID"
+names(data$DATA2)[names(data$DATA2) == "Gene Name"] <- "GeneSymbol"
 ```
 
 
@@ -162,7 +162,7 @@ data[["numeric_data"]]$data2_test <- base::do.call(base::c, temp_list)
 ## Gprofiler: Enrichment plots (Gostplot, Heatmap) (gost results)
 ```{r}
 # GOST PLOT --> I believe displayed significance in terms of p-value
-view_gost_plots_menu(data$gost_results$all_samples_go_bp)
+view_gost_plots_menu(data$gost_results$data2_all_samples_go_bp)
 # or like: view_gost_plots_menu(data$gost_results$all_samples_go_bp$HNPCC_CL)
 
 # HEATMAP
@@ -170,7 +170,7 @@ view_gost_plots_menu(data$gost_results$all_samples_go_bp)
 # Filter Top N per group options:
 # y = shows the top n genes per sample.
 # n = shows the top n genes globally. so if the top 8 are only in HCF_S, it'll show just that. if part of that top 8 is in more than one sample, it'll show just those samples. (not useful in our case? not sure, but it's similar to what I had originally so I decided to keep it as a functionality)
-plot_heatmap_gost_menu(data$gost_results$all_samples_go_bp)
+plot_heatmap_gost_menu(data$gost_results$data2_all_samples_go_bp)
 # or like: plot_heatmap_gost_menu(data$gost_results$all_samples_go_bp$HNPCC_CL)
 ```
 
