@@ -1,6 +1,5 @@
 # R/plotting/gsea_cnet_plots.R
 
-# builds the named descending gene vector from df + selected samples
 build_gene_list <- function(df, selected_samples, gene_col) {
   numeric_cols <- base::intersect(selected_samples,
                                    base::names(df)[base::sapply(df, base::is.numeric)])
@@ -13,7 +12,6 @@ build_gene_list <- function(df, selected_samples, gene_col) {
     genes  <- base::as.character(df[[gene_col]])
     values <- df[[numeric_cols[1]]]
   } else {
-    # average expression across selected samples per gene
     all_genes <- base::list()
     for (col in numeric_cols) {
       genes  <- base::as.character(df[[gene_col]])
@@ -28,20 +26,20 @@ build_gene_list <- function(df, selected_samples, gene_col) {
     values <- base::sapply(all_genes, mean)
   }
   
-  # remove NAs, sort descending
-  valid      <- !base::is.na(genes) & !base::is.na(values) & genes != ""
-  genes      <- genes[valid]
-  values     <- values[valid]
-  gene_list  <- values
+  valid     <- !base::is.na(genes) & !base::is.na(values) & genes != ""
+  genes     <- genes[valid]
+  values    <- values[valid]
+  gene_list <- values
   base::names(gene_list) <- genes
   base::sort(gene_list, decreasing = TRUE)
 }
 
 run_gsea_cnet <- function(desc_gene_list, selected_ont,
                            selected_plots,
-                           pvalue_cutoff  = 0.05,
-                           min_gs_size    = 10,
-                           max_gs_size    = 500) {
+                           show_category = 5,
+                           pvalue_cutoff = 0.05,
+                           min_gs_size   = 10,
+                           max_gs_size   = 500) {
   
   gsea_res <- clusterProfiler::gseGO(
     geneList     = desc_gene_list,
@@ -59,62 +57,67 @@ run_gsea_cnet <- function(desc_gene_list, selected_ont,
     base::stop("No significant GSEA results found. Try adjusting pvalue cutoff or gene list.")
   }
   
+  n_significant <- base::nrow(gsea_res@result)
+  
+  # clamp show_category to actual number of significant pathways
+  show_category <- base::min(show_category, n_significant)
+  
   gsea_readable <- clusterProfiler::setReadable(
     gsea_res, OrgDb = org.Hs.eg.db, keyType = "SYMBOL"
   )
   
   plots <- base::list()
   
-  # p1 — basic with foldChange coloring
-  if ("p1" %in% selected_plots) {
-    plots$p1 <- enrichplot::cnetplot(
+  # fold change coloring — basic
+  if ("foldchange" %in% selected_plots) {
+    plots$foldchange <- enrichplot::cnetplot(
       gsea_readable,
-      foldChange = desc_gene_list
+      foldChange   = desc_gene_list,
+      showCategory = show_category
     )
   }
   
-  # p2 — sized by pvalue
-  if ("p2" %in% selected_plots) {
-    plots$p2 <- enrichplot::cnetplot(
+  # category labels only
+  if ("category_labels" %in% selected_plots) {
+    plots$category_labels <- enrichplot::cnetplot(
       gsea_readable,
-      foldChange    = desc_gene_list,
-      size_category = "pvalue"       # replaces categorySize in v1.28+
+      node_label   = "category",
+      showCategory = show_category
     )
   }
   
-  # p4 — category labels only
-  if ("p4" %in% selected_plots) {
-    plots$p4 <- enrichplot::cnetplot(
+  # gene labels only
+  if ("gene_labels" %in% selected_plots) {
+    plots$gene_labels <- enrichplot::cnetplot(
       gsea_readable,
-      node_label = "category"
+      node_label   = "gene",
+      showCategory = show_category
     )
   }
   
-  # p5 — gene labels only
-  if ("p5" %in% selected_plots) {
-    plots$p5 <- enrichplot::cnetplot(
+  # all labels
+  if ("all_labels" %in% selected_plots) {
+    plots$all_labels <- enrichplot::cnetplot(
       gsea_readable,
-      node_label = "gene"
+      node_label   = "all",
+      showCategory = show_category
     )
   }
   
-  # p6 — all labels
-  if ("p6" %in% selected_plots) {
-    plots$p6 <- enrichplot::cnetplot(
-      gsea_readable,
-      node_label = "all"
-    )
-  }
-  
-  # p7 — no labels, custom colors
-  if ("p7" %in% selected_plots) {
-    plots$p7 <- enrichplot::cnetplot(
+  # no labels, custom colors
+  if ("custom_colors" %in% selected_plots) {
+    plots$custom_colors <- enrichplot::cnetplot(
       gsea_readable,
       node_label     = "none",
       color_category = "firebrick",
-      color_item     = "steelblue"   # replaces color_gene in v1.28+
+      color_item     = "steelblue",
+      showCategory   = show_category
     )
   }
   
-  base::return(plots)
+  base::return(base::list(
+    plots         = plots,
+    n_significant = n_significant,
+    show_category = show_category   # return actual clamped value used
+  ))
 }
