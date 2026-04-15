@@ -5,22 +5,33 @@ cleanDataUI <- function(id) {
   tagList(
     
     h4("Clean Dataset"),
-    selectInput(ns("clean_source"), "Select dataset to clean (only for data formatted from Scaffold 'sample view' export)", choices = NULL),
-    actionButton(ns("run_clean"), "Run Cleaning",
-                 style = "color: white; background-color: #2980b9;"),
+    tool_description(
+      "Processes Scaffold 'sample view' CSV exports: removes metadata columns, ",
+      "extracts UniProt IDs and entry names from the Accession field, ",
+      "and filters to human proteins only (_HUMAN suffix)."
+    ),
+    selectInput(ns("clean_source"), "Select dataset to clean", choices = NULL),
+    action_row(
+      tool_button(ns("run_clean"), "Run Cleaning")
+    ),
     uiOutput(ns("clean_status")),
-    
+
     hr(),
-    
+
     h4("Log Normalize"),
+    tool_description(
+      "Applies a log transformation to selected numeric columns. ",
+      "Zero values remain zero. Choose base 2, 10, or natural log."
+    ),
     selectInput(ns("norm_source"), "Select dataset to normalize", choices = NULL),
     uiOutput(ns("col_selector")),
     selectInput(ns("log_base"), "Log base",
                 choices = c("2" = 2, "10" = 10, "e" = exp(1)), selected = 2),
     textInput(ns("norm_output_name"), "Save normalized data as (optional)",
               placeholder = "leave blank for auto name (__[original-name]__log[base])"),
-    actionButton(ns("run_norm"), "Run Normalization",
-                 style = "color: white; background-color: #2980b9;"),
+    action_row(
+      tool_button(ns("run_norm"), "Run Normalization")
+    ),
     uiOutput(ns("norm_status"))
   )
 }

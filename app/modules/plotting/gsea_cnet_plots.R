@@ -11,21 +11,30 @@ CNET_PLOT_OPTIONS <- c(
 gseaCnetUI <- function(id) {
   ns <- NS(id)
   tagList(
-    
+
     h4("GSEA Concept Network (cnetplot)"),
-    p(style = "color: #888; font-size: 0.85em;",
-      "Runs Gene Set Enrichment Analysis and generates concept network plots. ",
-      "Requires a dataset with a GeneSymbol column and numeric sample columns."),
-    
-    selectInput(ns("source_df"), "Select dataset",       choices = NULL),
-    selectInput(ns("gene_col"),  "GeneSymbol column",    choices = NULL),
-    
+    tool_description(
+      "Runs Gene Set Enrichment Analysis (GSEA) on ranked gene lists and visualises ",
+      "results as concept network plots, linking enriched GO pathways to the genes ",
+      "that drive them. Multiple plot styles are available. ",
+      "Requires a dataset with a GeneSymbol column and numeric expression columns."
+    ),
+    citation_link(
+      "Yu G, et al. clusterProfiler: an R Package for Comparing Biological Themes Among Gene Clusters. OMICS, 2012",
+      "https://doi.org/10.1089/omi.2011.0118"
+    ),
+
     hr(),
-    
+
+    selectInput(ns("source_df"), "Select dataset",    choices = NULL),
+    selectInput(ns("gene_col"),  "GeneSymbol column", choices = NULL),
+
+    hr(),
+
     uiOutput(ns("sample_picker")),
-    
+
     hr(),
-    
+
     fluidRow(
       column(3,
         selectInput(ns("ontology"), "Ontology",
@@ -45,7 +54,7 @@ gseaCnetUI <- function(id) {
                      value = 500, min = 10, step = 50)
       )
     ),
-    
+
     fluidRow(
       column(6,
         numericInput(ns("show_category"),
@@ -53,30 +62,30 @@ gseaCnetUI <- function(id) {
                      value = 5, min = 1, max = 30, step = 1)
       )
     ),
-    
+
     hr(),
-    
+
     h5("Select plots to generate"),
     checkboxGroupInput(ns("selected_plots"), label = NULL,
                        choices  = CNET_PLOT_OPTIONS,
                        selected = c("foldchange", "all_labels"),
                        inline   = FALSE),
-    
+
     hr(),
-    
+
     textInput(ns("plot_name_prefix"), "Plot name prefix",
               placeholder = "leave blank for auto name"),
-    
-    actionButton(ns("run"), "Run GSEA & Generate Plots",
-                 style = "color: white; background-color: #2980b9; width: 100%;"),
-    
-    br(), br(),
-    
+
+    action_row(
+      tool_button(ns("run"), "Run GSEA & Generate Plots")
+    ),
+
+    br(),
     shinycssloaders::withSpinner(
       uiOutput(ns("status")),
-      type    = 8,
+      type    = 6,
       color   = "#2980b9",
-      size    = 0.7,
+      size    = 0.6,
       hide.ui = FALSE
     )
   )
@@ -84,25 +93,25 @@ gseaCnetUI <- function(id) {
 
 gseaCnetServer <- function(id, data_store, plot_store) {
   moduleServer(id, function(input, output, session) {
-    
+
     running <- reactiveVal(FALSE)
-    
+
     observe({
       updateSelectInput(session, "source_df", choices = names(data_store()))
     })
-    
+
     observeEvent(input$source_df, {
       req(input$source_df, data_store()[[input$source_df]])
       cols         <- base::names(data_store()[[input$source_df]])
       gene_default <- if ("GeneSymbol" %in% cols) "GeneSymbol" else cols[1]
       updateSelectInput(session, "gene_col", choices = cols, selected = gene_default)
     })
-    
+
     output$sample_picker <- renderUI({
       req(input$source_df, data_store()[[input$source_df]])
       df       <- data_store()[[input$source_df]]
       num_cols <- base::names(df)[base::sapply(df, base::is.numeric)]
-      
+
       if (base::length(num_cols) == 0) {
         div(style = "color: red; padding: 4px 8px;",
             "No numeric columns found in this dataset.")
@@ -114,28 +123,29 @@ gseaCnetServer <- function(id, data_store, plot_store) {
                            inline   = FALSE)
       }
     })
-    
+
     output$status <- renderUI({
       if (running()) return(NULL)
       div(style = "color: #888; padding: 8px;",
           "Ready — configure options and click Run.")
     })
-    
+
     observeEvent(input$run, {
       req(input$source_df, input$gene_col,
           input$selected_samples, input$selected_plots)
-      
+
       running(TRUE)
-      
+      button_loading(session, "run")
+
       tryCatch({
         df <- data_store()[[input$source_df]]
-        
+
         desc_gene_list <- build_gene_list(
           df               = df,
           selected_samples = input$selected_samples,
           gene_col         = input$gene_col
         )
-        
+
         result <- run_gsea_cnet(
           desc_gene_list = desc_gene_list,
           selected_ont   = input$ontology,
@@ -145,11 +155,11 @@ gseaCnetServer <- function(id, data_store, plot_store) {
           min_gs_size    = input$min_gs,
           max_gs_size    = input$max_gs
         )
-        
+
         plots         <- result$plots
         n_sig         <- result$n_significant
         used_category <- result$show_category
-        
+
         updated <- plot_store()
         for (plot_key in base::names(plots)) {
           out_name <- if (trimws(input$plot_name_prefix) == "") {
@@ -160,15 +170,15 @@ gseaCnetServer <- function(id, data_store, plot_store) {
           }
           updated[[out_name]] <- plots[[plot_key]]
         }
-        
+
         plot_store(updated)
         save_plot_store(updated)
-        
+
         running(FALSE)
-        
-        # note if show_category was clamped
+        button_reset(session, "run")
+
         clamped <- used_category < input$show_category
-        
+
         output$status <- renderUI({
           tagList(
             div(style = "color: #2980b9; font-weight: bold; padding: 4px 8px;",
@@ -187,15 +197,16 @@ gseaCnetServer <- function(id, data_store, plot_store) {
                        base::paste(base::names(plots), collapse = ", ")))
           )
         })
-        
+
       }, error = function(e) {
         running(FALSE)
+        button_reset(session, "run")
         output$status <- renderUI({
           div(style = "color: red; font-weight: bold; padding: 8px;",
               paste0("✗ Error: ", e$message))
         })
       })
     })
-    
+
   })
 }

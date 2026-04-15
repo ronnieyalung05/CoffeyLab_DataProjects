@@ -6,8 +6,9 @@ renameDataUI <- function(id) {
     h4("Rename Dataset"),
     selectInput(ns("rename_source"), "Select dataset to rename", choices = NULL),
     textInput(ns("rename_to"), "New name", placeholder = "e.g. my_data_final"),
-    actionButton(ns("run_rename"), "Rename",
-                 style = "color: white; background-color: #8e44ad;"),
+    action_row(
+      tool_button(ns("run_rename"), "Rename", color = "#8e44ad")
+    ),
     uiOutput(ns("rename_status"))
   )
 }

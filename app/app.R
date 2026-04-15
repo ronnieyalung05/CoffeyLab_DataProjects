@@ -1,5 +1,7 @@
 source("sources.R")
 
+options(shiny.maxRequestSize = 50 * 1024^2)  # 50 MB upload limit
+
 server <- function(input, output, session) {
     # THIS is your persistent dataframe + plot store — a named list of dataframes and plots
     # .rds files are found in session_cache; it is best not to mess with those files directly
@@ -16,14 +18,18 @@ server <- function(input, output, session) {
     dataSaveServer("dataSave", data_store) 
 
     # add identifiers
-    convertIdsServer("convertIds", data_store) 
+    convertIdsServer("convertIds", data_store)
     goAnnotationsServer("goAnnotations", data_store)
+    importCorumServer("importCorum", data_store)
 
     # enrichment
     gostAnalysisServer("gostAnalysis", data_store)
 
     # filtering
     filterProteinsServer("filterProteins", data_store)
+
+    # corshift
+    corshiftServer("corshift", data_store)
 
     # plotting
     gostPlotServer("gostPlot", data_store, plot_store)
@@ -36,9 +42,13 @@ server <- function(input, output, session) {
 ui <- page_navbar(
     title = "Functional Analysis of Proteomic Data",
 
-    tags$head(tags$script(HTML(
-        "window.onbeforeunload = function() { return 'Data may be lost on refresh. Are you sure?'; };"
-    ))),
+    tags$head(
+        tags$link(rel = "stylesheet", type = "text/css", href = "app.css"),
+        shinyjs::useShinyjs(),
+        tags$script(HTML(
+            "window.onbeforeunload = function() { return 'Data may be lost on refresh. Are you sure?'; };"
+        ))
+    ),
 
     nav_panel(
         "Data Manager",
@@ -55,16 +65,18 @@ ui <- page_navbar(
 
     nav_panel(
         "Add Identifiers",
-        # Inner tabs
         navset_tab(
-            nav_panel("Add External IDs", convertIdsUI("convertIds")),
-            nav_panel("Add GO Annotations", goAnnotationsUI("goAnnotations"))
+            nav_panel("Add External IDs",    convertIdsUI("convertIds")),
+            nav_panel("Add GO Annotations",  goAnnotationsUI("goAnnotations")),
+            nav_panel("Import CORUM Pairs",  importCorumUI("importCorum"))
         )
     ),
 
     nav_panel("Enrichment Analysis", gostAnalysisUI("gostAnalysis")),
 
     nav_panel("GO Cross-reference", filterProteinsUI("filterProteins")),
+
+    nav_panel("CorShift Analysis", corshiftUI("corshift")),
 
     nav_panel("Plots, Diagrams, Visualizations", 
         # Inner tabs 

@@ -33,23 +33,18 @@ plotViewerUI <- function(id) {
     hr(),
     
     h4("Rename Plot"),
-    fluidRow(
-      column(5,
-        textInput(ns("rename_to"), "New name",
-                  placeholder = "e.g. my_heatmap_final")
-      ),
-      column(3, br(),
-        actionButton(ns("run_rename"), "Rename",
-                     style = "color: white; background-color: #8e44ad;")
-      )
+    textInput(ns("rename_to"), "New name", placeholder = "e.g. my_heatmap_final"),
+    action_row(
+      tool_button(ns("run_rename"), "Rename", color = "#8e44ad")
     ),
     uiOutput(ns("rename_status")),
-    
+
     hr(),
-    
+
     h4("Delete Plot"),
-    actionButton(ns("delete_plot"), "Delete Selected Plot",
-                 style = "color: white; background-color: #e74c3c;"),
+    action_row(
+      tool_button(ns("delete_plot"), "Delete Selected Plot", color = "#e74c3c")
+    ),
     uiOutput(ns("delete_status"))
   )
 }

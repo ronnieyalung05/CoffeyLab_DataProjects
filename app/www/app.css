@@ -1,0 +1,193 @@
+/* ── Global reset / base ───────────────────────────────────────────────── */
+body {
+  font-family: "Inter", "Segoe UI", system-ui, sans-serif;
+  background-color: #f5f6fa;
+  color: #2d3436;
+}
+
+/* ── Navbar ────────────────────────────────────────────────────────────── */
+.navbar {
+  background-color: #1a252f !important;
+  border-bottom: 2px solid #2980b9;
+}
+
+.navbar-brand,
+.navbar-brand:hover {
+  color: #ecf0f1 !important;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.nav-link {
+  color: #bdc3c7 !important;
+  font-size: 0.93em;
+  padding: 10px 14px !important;
+}
+
+.nav-link:hover,
+.nav-link.active {
+  color: #ffffff !important;
+  background-color: rgba(41, 128, 185, 0.25) !important;
+  border-radius: 4px;
+}
+
+/* Inner tab strip */
+.nav-tabs .nav-link {
+  color: #555 !important;
+  border-radius: 4px 4px 0 0;
+}
+
+.nav-tabs .nav-link.active {
+  color: #1a252f !important;
+  font-weight: 600;
+  border-bottom: 2px solid #2980b9;
+  background-color: #fff !important;
+}
+
+/* ── Page content container ─────────────────────────────────────────────── */
+.tab-content > .tab-pane,
+.tab-content > .active {
+  padding: 20px 4px 8px;
+}
+
+/* ── Tool panels / cards ────────────────────────────────────────────────── */
+.tool-description {
+  color: #636e72;
+  font-size: 0.88em;
+  line-height: 1.6;
+  margin-bottom: 10px;
+  padding: 6px 0;
+}
+
+/* Citation link */
+.citation-link {
+  font-size: 0.8em;
+  color: #2980b9;
+  text-decoration: none;
+}
+
+.citation-link:hover {
+  text-decoration: underline;
+  color: #1a6a9e;
+}
+
+/* ── Buttons ────────────────────────────────────────────────────────────── */
+
+/* Override Shiny's full-width default when width:100% is absent */
+.btn {
+  border: none;
+  border-radius: 4px;
+  font-size: 0.92em;
+  transition: opacity 0.15s, filter 0.15s;
+}
+
+.btn:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+
+/* Disabled / loading state */
+.btn:disabled,
+.btn.disabled {
+  opacity: 0.55 !important;
+  cursor: not-allowed !important;
+  pointer-events: all !important; /* keep cursor:not-allowed visible */
+}
+
+/* Action row — buttons sit at the bottom of a form, left-aligned */
+.action-row {
+  margin-top: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+/* Download buttons */
+.btn-file {
+  margin-top: 6px;
+}
+
+/* ── Status messages ────────────────────────────────────────────────────── */
+.status-success,
+div[style*="color: green"] {
+  background: #eafaf1;
+  border-left: 3px solid #27ae60;
+  border-radius: 3px;
+  padding: 8px 12px !important;
+  margin-top: 8px;
+}
+
+.status-error,
+div[style*="color: red"] {
+  background: #fdedec;
+  border-left: 3px solid #e74c3c;
+  border-radius: 3px;
+  padding: 8px 12px !important;
+  margin-top: 8px;
+}
+
+div[style*="color: #888"] {
+  padding: 8px 0 !important;
+}
+
+/* ── Loading spinner (shinycssloaders) ──────────────────────────────────── */
+/* Pulse animation — used for custom progress indicator */
+@keyframes pulse-ring {
+  0%   { transform: scale(0.9); opacity: 1; }
+  50%  { transform: scale(1.1); opacity: 0.6; }
+  100% { transform: scale(0.9); opacity: 1; }
+}
+
+.shiny-spinner-output-container {
+  margin-top: 10px;
+}
+
+/* ── Horizontal rules ───────────────────────────────────────────────────── */
+hr {
+  border: none;
+  border-top: 1px solid #dfe6e9;
+  margin: 14px 0;
+}
+
+/* ── Inputs ─────────────────────────────────────────────────────────────── */
+.form-control,
+.selectize-input {
+  border-radius: 4px;
+  border: 1px solid #ced4da;
+  font-size: 0.9em;
+}
+
+.form-control:focus,
+.selectize-input.focus {
+  border-color: #2980b9;
+  box-shadow: 0 0 0 2px rgba(41,128,185,0.18);
+}
+
+label {
+  font-weight: 500;
+  font-size: 0.9em;
+  color: #2d3436;
+}
+
+/* ── Section headings ───────────────────────────────────────────────────── */
+h4 {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: #1a252f;
+  margin-top: 4px;
+  margin-bottom: 6px;
+}
+
+h5 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #2d3436;
+  margin-bottom: 6px;
+}
+
+/* ── DataTable ──────────────────────────────────────────────────────────── */
+.dataTables_wrapper .dataTables_filter input {
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  padding: 4px 8px;
+}

@@ -30,9 +30,11 @@ library(reshape2)
 library(tidyr)
 library(DOSE) # for gosemsimplot
 library(dplyr)
+library(AlteredPQR)
 library(conflicted)
 
-conflict_prefer("select", "dplyr")
+conflict_prefer("select",    "dplyr")
+conflict_prefer("intersect", "base")
 conflict_prefer("filter", "dplyr")
 conflict_prefer("rename", "dplyr")
 conflict_prefer("slice", "dplyr")

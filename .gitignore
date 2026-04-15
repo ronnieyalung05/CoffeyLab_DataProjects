@@ -1,5 +1,2 @@
 session_cache/
 .Rhistory/
-app/.Rhistory
-app/session_cache/data_store.rds
-app/session_cache/plots/plot_store.rds

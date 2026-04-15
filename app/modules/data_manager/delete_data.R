@@ -1,15 +1,18 @@
 dataDeleteUI <- function(id) {
   ns <- NS(id)
   tagList(
-    h4("Remove a loaded dataset (refresh browser after running)"),
+    h4("Remove a loaded dataset"),
+    p(style = "color: #888; font-size: 0.85em;", "Refresh the browser after removing datasets."),
     selectInput(ns("delete_choice"), "Select dataset to remove", choices = NULL),
-    actionButton(ns("delete_single"), "Remove Selected", 
-                 style = "color: white; background-color: #e74c3c;"),
+    action_row(
+      tool_button(ns("delete_single"), "Remove Selected", color = "#e74c3c")
+    ),
     hr(),
-    h4("Clear everything (refresh browser after running)"),
-    p("Removes all loaded datasets from the app and cache."),
-    actionButton(ns("delete_all"), "Clear All Datasets",
-                 style = "color: white; background-color: #c0392b;"),
+    h4("Clear everything"),
+    tool_description("Removes all loaded datasets from the app and cache."),
+    action_row(
+      tool_button(ns("delete_all"), "Clear All Datasets", color = "#c0392b")
+    ),
     hr(),
     uiOutput(ns("delete_status"))
   )
