@@ -155,10 +155,8 @@ corshiftServer <- function(id, data_store) {
       req(results())
       res <- results()
 
-      # "note" column means no pairs were found — show a simple message table
-      if ("note" %in% names(res)) {
+      if ("note" %in% names(res))
         return(DT::datatable(res, options = list(dom = "t"), rownames = FALSE))
-      }
 
       round_cols <- base::intersect(
         c("cor_group_A", "pval_group_A", "cor_group_B", "pval_group_B", "correlation_shift"),
@@ -175,7 +173,7 @@ corshiftServer <- function(id, data_store) {
       dt
     })
 
-    # ── Run ───────────────────────────────────────────────────────────────────
+    # ── Run CorShift ──────────────────────────────────────────────────────────
     observeEvent(input$run, {
       req(input$source_df, input$uniprot_col,
           input$pairs_df,
@@ -200,6 +198,40 @@ corshiftServer <- function(id, data_store) {
             cor_signif         = input$cor_signif
           )
 
+          # ── Add gene symbol + entrez ID columns ──────────────────────────
+          if (!"note" %in% names(result)) {
+            prot_a  <- sub("-.*$",    "", result$protein_pair)
+            prot_b  <- sub("^[^-]+-", "", result$protein_pair)
+            all_ids <- unique(c(prot_a, prot_b))
+
+            mapping <- tryCatch(
+              clusterProfiler::bitr(all_ids,
+                                    fromType = "UNIPROT",
+                                    toType   = c("SYMBOL", "ENTREZID"),
+                                    OrgDb    = org.Hs.eg.db),
+              error = function(e)
+                data.frame(UNIPROT  = character(),
+                           SYMBOL   = character(),
+                           ENTREZID = character(),
+                           stringsAsFactors = FALSE)
+            )
+
+            sym_map    <- if (nrow(mapping) > 0) setNames(mapping$SYMBOL,   mapping$UNIPROT) else character()
+            entrez_map <- if (nrow(mapping) > 0) setNames(mapping$ENTREZID, mapping$UNIPROT) else character()
+
+            sym_a    <- ifelse(prot_a %in% names(sym_map),    sym_map[prot_a],    "[unmapped]")
+            sym_b    <- ifelse(prot_b %in% names(sym_map),    sym_map[prot_b],    "[unmapped]")
+            entrez_a <- ifelse(prot_a %in% names(entrez_map), entrez_map[prot_a], "[unmapped]")
+            entrez_b <- ifelse(prot_b %in% names(entrez_map), entrez_map[prot_b], "[unmapped]")
+
+            result$symbol_pair <- paste(sym_a, sym_b, sep = "-")
+            result$entrez_pair <- paste(entrez_a, entrez_b, sep = "-")
+
+            # Reorder: protein_pair, symbol_pair, entrez_pair, then remaining columns
+            rest_cols <- base::setdiff(names(result), c("protein_pair", "symbol_pair", "entrez_pair"))
+            result    <- result[, c("protein_pair", "symbol_pair", "entrez_pair", rest_cols)]
+          }
+
           out_name <- if (trimws(input$output_name) == "") {
             paste0("__corshift__", input$source_df)
           } else {
@@ -213,7 +245,6 @@ corshiftServer <- function(id, data_store) {
 
           results(result)
 
-          # Handle the "no results" informative data frame
           if ("note" %in% names(result)) {
             status_msg(list(type = "idle", text = result$note[1]))
           } else {

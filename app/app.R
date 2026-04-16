@@ -33,8 +33,10 @@ server <- function(input, output, session) {
 
     # plotting
     gostPlotServer("gostPlot", data_store, plot_store)
-    heatmapPlotServer("heatmapPlot", data_store, plot_store) 
-    plotViewerServer("plotViewer", plot_store) 
+    heatmapPlotServer("heatmapPlot", data_store, plot_store)
+    expressionHeatmapServer("exprHeatmap", data_store, plot_store)
+    corshiftHeatmapServer("corshiftHeatmap", data_store, plot_store)
+    plotViewerServer("plotViewer", plot_store)
     goSemSimServer("goSemSim", data_store, plot_store)
     gseaCnetServer("gseaCnet", data_store, plot_store)
 }
@@ -81,11 +83,13 @@ ui <- page_navbar(
     nav_panel("Plots, Diagrams, Visualizations", 
         # Inner tabs 
         navset_tab(
-            nav_panel("View Plots", plotViewerUI("plotViewer")),
-            nav_panel("Create Gost Plots", gostPlotUI("gostPlot")),
-            nav_panel("Create Heatmaps", heatmapPlotUI("heatmapPlot")),
+            nav_panel("View Plots",            plotViewerUI("plotViewer")),
+            nav_panel("Gost Plot",     gostPlotUI("gostPlot")),
+            nav_panel("GO Enrichment Heatmap",       heatmapPlotUI("heatmapPlot")),
+            nav_panel("Expression Heatmap",    expressionHeatmapUI("exprHeatmap")),
+            nav_panel("CorShift Heatmap",      corshiftHeatmapUI("corshiftHeatmap")),
             nav_panel("GO Semantic Similarity", goSemSimUI("goSemSim")),
-            nav_panel("GSEA Cnetplot", gseaCnetUI("gseaCnet"))
+            nav_panel("GSEA Cnetplot",         gseaCnetUI("gseaCnet"))
         )
     )
 

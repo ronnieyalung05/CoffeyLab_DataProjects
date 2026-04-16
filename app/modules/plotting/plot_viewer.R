@@ -26,12 +26,31 @@ plotViewerUI <- function(id) {
                     min = 300, max = 1600, value = 600, step = 50)
       )
     ),
-    
+
     # render area
     uiOutput(ns("plot_area")),
-    
+
     hr(),
-    
+
+    h4("Download Plot"),
+    fluidRow(
+      column(4,
+        selectInput(ns("dl_format"), "Format",
+                    choices = c("PNG" = "png", "PDF" = "pdf", "SVG" = "svg"),
+                    width = "100%")
+      ),
+      column(8, style = "padding-top: 25px;",
+        downloadButton(ns("download_plot"), "Download Plot",
+                       style = "color: white; background-color: #2980b9; border: none;
+                                padding: 6px 18px; border-radius: 4px; font-weight: 500;")
+      )
+    ),
+    p(style = "color: #888; font-size: 0.85em; margin-top: -4px;",
+      "Plotly interactive plots are exported as self-contained HTML regardless of format selection. ",
+      "Width/height sliders above control export dimensions for ggplot/pheatmap outputs."),
+
+    hr(),
+
     h4("Rename Plot"),
     textInput(ns("rename_to"), "New name", placeholder = "e.g. my_heatmap_final"),
     action_row(
@@ -85,6 +104,32 @@ plotViewerServer <- function(id, plot_store) {
       print(p)
     })
     
+    # --- download ---
+    output$download_plot <- downloadHandler(
+      filename = function() {
+        nm  <- req(input$selected_plot)
+        p   <- plot_store()[[nm]]
+        ext <- if (inherits(p, "plotly")) "html" else input$dl_format
+        paste0(nm, ".", ext)
+      },
+      content = function(file) {
+        nm <- input$selected_plot
+        p  <- plot_store()[[nm]]
+        if (inherits(p, "plotly")) {
+          htmlwidgets::saveWidget(plotly::as_widget(p), file, selfcontained = TRUE)
+        } else {
+          ggplot2::ggsave(
+            filename = file,
+            plot     = p,
+            width    = input$plot_width  / 96,
+            height   = input$plot_height / 96,
+            device   = input$dl_format,
+            dpi      = 300
+          )
+        }
+      }
+    )
+
     # --- rename ---
     observeEvent(input$run_rename, {
       req(input$selected_plot, input$rename_to)

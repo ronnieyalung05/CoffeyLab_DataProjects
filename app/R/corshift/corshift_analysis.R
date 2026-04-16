@@ -92,3 +92,77 @@ run_corshift <- function(df,
 
   result
 }
+
+# ── CorShift heatmap ──────────────────────────────────────────────────────────
+#
+# Rows = significant protein pairs (labeled by symbol_pair if available),
+# Cols = individual samples (Group A then Group B), annotated with group bar.
+# Cell value = average z-scored co-abundance: (z_ProtA + z_ProtB) / 2.
+
+make_corshift_heatmap <- function(result_df, mat, group_a_cols, group_b_cols,
+                                   top_n = 0, label_type = "symbol") {
+  if (is.null(result_df) || "note" %in% names(result_df) || nrow(result_df) == 0)
+    return(NULL)
+
+  # Row labels: use gene symbols or UniProt IDs based on label_type
+  labels <- if (label_type == "symbol" && "symbol_pair" %in% names(result_df))
+               result_df$symbol_pair
+             else
+               result_df$protein_pair
+
+  # Split protein_pair (format "ProtA-ProtB") at first dash
+  prot_a <- sub("-.*$",    "", result_df$protein_pair)
+  prot_b <- sub("^[^-]+-", "", result_df$protein_pair)
+
+  # Z-score each protein across all samples (scale() works on columns → transpose)
+  mat_z <- t(scale(t(mat)))
+
+  # Only include sample columns that actually exist in mat
+  all_cols <- base::intersect(c(group_a_cols, group_b_cols), colnames(mat_z))
+
+  score_mat <- matrix(
+    NA_real_, nrow = nrow(result_df), ncol = length(all_cols),
+    dimnames = list(labels, all_cols)
+  )
+
+  for (i in seq_len(nrow(result_df))) {
+    a_id <- prot_a[i]; b_id <- prot_b[i]
+    if (!(a_id %in% rownames(mat_z)) || !(b_id %in% rownames(mat_z))) next
+    score_mat[i, ] <- (mat_z[a_id, all_cols] + mat_z[b_id, all_cols]) / 2
+  }
+
+  # Sort rows by correlation_shift descending
+  if ("correlation_shift" %in% names(result_df)) {
+    ord       <- order(result_df$correlation_shift, decreasing = TRUE)
+    score_mat <- score_mat[ord, , drop = FALSE]
+  }
+
+  # Filter to top N pairs if requested
+  if (top_n > 0 && nrow(score_mat) > top_n)
+    score_mat <- score_mat[seq_len(top_n), , drop = FALSE]
+
+  # Column annotation bar (Group A = blue, Group B = red)
+  n_a_actual <- length(base::intersect(group_a_cols, all_cols))
+  n_b_actual <- length(base::intersect(group_b_cols, all_cols))
+  ann_col <- data.frame(
+    Group = factor(c(rep("Group A", n_a_actual), rep("Group B", n_b_actual))),
+    row.names = all_cols
+  )
+  ann_colors <- list(Group = c("Group A" = "#2980b9", "Group B" = "#c0392b"))
+
+  lim <- max(abs(score_mat), na.rm = TRUE)
+  if (!is.finite(lim) || lim == 0) lim <- 1
+
+  ph <- pheatmap::pheatmap(
+    score_mat,
+    cluster_rows      = nrow(score_mat) > 1,
+    cluster_cols      = FALSE,
+    annotation_col    = ann_col,
+    annotation_colors = ann_colors,
+    color  = colorRampPalette(c("#2166ac", "white", "#d6604d"))(60),
+    breaks = seq(-lim, lim, length.out = 61),
+    silent = TRUE
+  )
+
+  ggplotify::as.ggplot(ph)
+}
